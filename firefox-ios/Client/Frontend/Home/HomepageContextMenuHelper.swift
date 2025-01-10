@@ -13,7 +13,7 @@ import enum MozillaAppServices.BookmarkRoots
 protocol HomepageContextMenuHelperDelegate: UIViewController {
     func homePanelDidRequestToOpenInNewTab(_ url: URL, isPrivate: Bool, selectNewTab: Bool)
     func homePanelDidRequestToOpenSettings(at settingsPage: Route.SettingsSection)
-    func homePanelDidRequestBookmarkToast(for action: BookmarkAction)
+    func homePanelDidRequestBookmarkToast(url: URL?, action: BookmarkAction)
 }
 // swiftlint:enable class_delegate_protocol
 
@@ -28,20 +28,24 @@ enum BookmarkAction {
     case remove
 }
 
-class HomepageContextMenuHelper: HomepageContextMenuProtocol {
+class HomepageContextMenuHelper: HomepageContextMenuProtocol,
+                                 BookmarksRefactorFeatureFlagProvider {
     typealias ContextHelperDelegate = HomepageContextMenuHelperDelegate & UIPopoverPresentationControllerDelegate
     private var viewModel: HomepageViewModel
     private let toastContainer: UIView
+    private let bookmarksSaver: BookmarksSaver
     weak var browserNavigationHandler: BrowserNavigationHandler?
     weak var delegate: ContextHelperDelegate?
     var getPopoverSourceRect: ((UIView?) -> CGRect)?
 
     init(
         viewModel: HomepageViewModel,
-        toastContainer: UIView
+        toastContainer: UIView,
+        bookmarksSaver: BookmarksSaver? = nil
     ) {
         self.viewModel = viewModel
         self.toastContainer = toastContainer
+        self.bookmarksSaver = bookmarksSaver ?? DefaultBookmarksSaver(profile: viewModel.profile)
     }
 
     func presentContextMenu(for site: Site,
@@ -202,7 +206,8 @@ class HomepageContextMenuHelper: HomepageContextMenuProtocol {
                 site.setBookmarked(false)
             }
 
-            self.delegate?.homePanelDidRequestBookmarkToast(for: .remove)
+            let url = URL(string: site.url)
+            self.delegate?.homePanelDidRequestBookmarkToast(url: url, action: .remove)
 
             TelemetryWrapper.recordEvent(category: .action, method: .delete, object: .bookmark, value: .activityStream)
         })
@@ -214,11 +219,10 @@ class HomepageContextMenuHelper: HomepageContextMenuProtocol {
                                      allowIconScaling: true,
                                      tapHandler: { _ in
             let shareItem = ShareItem(url: site.url, title: site.title)
-            // Add new mobile bookmark at the top of the list
-            _ = self.viewModel.profile.places.createBookmark(parentGUID: BookmarkRoots.MobileFolderGUID,
-                                                             url: shareItem.url,
-                                                             title: shareItem.title,
-                                                             position: 0)
+
+            Task {
+                await self.bookmarksSaver.createBookmark(url: shareItem.url, title: shareItem.title, position: 0)
+            }
 
             var userData = [QuickActionInfos.tabURLKey: shareItem.url]
             if let title = shareItem.title {
@@ -229,27 +233,29 @@ class HomepageContextMenuHelper: HomepageContextMenuProtocol {
                                                                                  toApplication: .shared)
             site.setBookmarked(true)
 
-            self.delegate?.homePanelDidRequestBookmarkToast(for: .add)
+            self.delegate?.homePanelDidRequestBookmarkToast(url: nil, action: .add)
 
             TelemetryWrapper.recordEvent(category: .action, method: .add, object: .bookmark, value: .activityStream)
         })
     }
 
-    /// Handles share from Long press on Pocket article
+    /// Handles share from long press on pocket articles, jump back in websites, bookmarks, etc. on the home screen.
     /// - Parameters:
     ///   - site: Site for pocket article
     ///   - sourceView: View to show the popover
     /// - Returns: Share action
     private func getShareAction(site: Site, sourceView: UIView?) -> PhotonRowActions {
         return SingleActionViewModel(title: .ShareContextMenuTitle,
-                                     iconString: StandardImageIdentifiers.Large.shareApple,
+                                     iconString: StandardImageIdentifiers.Large.share,
                                      allowIconScaling: true,
                                      tapHandler: { _ in
             guard let url = URL(string: site.url, invalidCharacters: false) else { return }
 
-            self.browserNavigationHandler?.showShareExtension(
-                url: url,
+            self.browserNavigationHandler?.showShareSheet(
+                shareType: .site(url: url),
+                shareMessage: nil,
                 sourceView: sourceView ?? UIView(),
+                sourceRect: nil,
                 toastContainer: self.toastContainer,
                 popoverArrowDirection: [.up, .down, .left])
         }).items

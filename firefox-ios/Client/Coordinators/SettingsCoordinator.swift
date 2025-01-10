@@ -23,7 +23,7 @@ class SettingsCoordinator: BaseCoordinator,
                            AboutSettingsDelegate,
                            ParentCoordinatorDelegate,
                            QRCodeNavigationHandler {
-    var settingsViewController: AppSettingsScreen
+    var settingsViewController: AppSettingsScreen?
     private let wallpaperManager: WallpaperManagerInterface
     private let profile: Profile
     private let tabManager: TabManager
@@ -40,13 +40,15 @@ class SettingsCoordinator: BaseCoordinator,
         self.profile = profile
         self.tabManager = tabManager
         self.themeManager = themeManager
-        self.settingsViewController = AppSettingsTableViewController(with: profile,
-                                                                     and: tabManager)
         super.init(router: router)
 
+        // It's important we initialize AppSettingsTableViewController with a settingsDelegate and parentCoordinator
+        let settingsViewController = AppSettingsTableViewController(with: profile,
+                                                                    and: tabManager,
+                                                                    settingsDelegate: self,
+                                                                    parentCoordinator: self)
+        self.settingsViewController = settingsViewController
         router.setRootViewController(settingsViewController)
-        settingsViewController.settingsDelegate = self
-        settingsViewController.parentCoordinator = self
     }
 
     func start(with settingsSection: Route.SettingsSection) {
@@ -55,7 +57,8 @@ class SettingsCoordinator: BaseCoordinator,
         if let viewController = getSettingsViewController(settingsSection: settingsSection) {
             router.push(viewController)
         } else {
-            settingsViewController.handle(route: settingsSection)
+            assert(settingsViewController != nil)
+            settingsViewController?.handle(route: settingsSection)
         }
     }
 
@@ -79,6 +82,16 @@ class SettingsCoordinator: BaseCoordinator,
 
     private func getSettingsViewController(settingsSection section: Route.SettingsSection) -> UIViewController? {
         switch section {
+        case .addresses:
+            let viewModel = AddressAutofillSettingsViewModel(
+                profile: profile,
+                windowUUID: windowUUID
+            )
+            let viewController = AddressAutofillSettingsViewController(
+                addressAutofillViewModel: viewModel,
+                windowUUID: windowUUID
+            )
+            return viewController
         case .newTab:
             let viewController = NewTabContentSettingsViewController(prefs: profile.prefs,
                                                                      windowUUID: windowUUID)
@@ -196,6 +209,11 @@ class SettingsCoordinator: BaseCoordinator,
 
     func openDebugTestTabs(count: Int) {
         parentCoordinator?.openDebugTestTabs(count: count)
+    }
+
+    func showDebugFeatureFlags() {
+        let featureFlagsViewController = FeatureFlagsDebugViewController(profile: profile, windowUUID: windowUUID)
+        router.push(featureFlagsViewController)
     }
 
     func showPasswordManager(shouldShowOnboarding: Bool) {
@@ -391,7 +409,8 @@ class SettingsCoordinator: BaseCoordinator,
     // MARK: - AboutSettingsDelegate
 
     func pressedRateApp() {
-        settingsViewController.handle(route: .rateApp)
+        assert(settingsViewController != nil)
+        settingsViewController?.handle(route: .rateApp)
     }
 
     func pressedLicense(url: URL, title: NSAttributedString) {

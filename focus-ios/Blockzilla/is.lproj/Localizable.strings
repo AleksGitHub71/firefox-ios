@@ -277,6 +277,9 @@
 /* Dark theme option in settings menu */
 "Settings.darkTheme" = "Dökkt";
 
+/* Description associated with the Crash Reports toggle on settings screen */
+"Settings.detailTextCrashReports" = "Hrunskýrslur gera okkur kleift að greina og laga vandamál í vafranum.";
+
 /* Description associated to the Search Suggestions toggle on main screen. %@ is the app name (Focus/Klar) */
 "Settings.detailTextSearchSuggestion" = "%@ mun senda það sem þú skrifar í slóðina yfir á leitarvélina þína.";
 
@@ -381,6 +384,9 @@
 
 /* Label for the checkbox to toggle Social trackers */
 "Settings.toggleBlockSocial2" = "Samfélagsmiðlar";
+
+/* Label for Crash Reports toggle on settings screen */
+"Settings.toggleCrashReports" = "Senda hrunskýrslur inn sjálfkrafa";
 
 /* Label for toggle on settings screen */
 "Settings.toggleFaceID" = "Nota andlitsauðkenningu til að aflæsa smáforriti";
@@ -629,7 +635,7 @@
 "URL.paste" = "Líma";
 
 /* Placeholder text shown in the URL bar before the user navigates to a page */
-"URL.placeholderText" = "Leitaðu eða sláðu inn vistfang";
+"URL.placeholderText" = "Leitaðu eða settu inn vistfang";
 
 /* Label displayed for search button when typing in the URL bar */
 "URL.searchLabel" = "Leita að %@";

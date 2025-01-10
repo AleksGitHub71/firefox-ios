@@ -5,14 +5,15 @@
 import Common
 import Foundation
 import Shared
+import Localizations
 
+import struct MozillaAppServices.NimbusAppSettings
 import class MozillaAppServices.NimbusBuilder
 import class MozillaAppServices.NimbusDisabled
+import typealias MozillaAppServices.NimbusErrorReporter
 import protocol MozillaAppServices.NimbusEventStore
 import protocol MozillaAppServices.NimbusInterface
 import protocol MozillaAppServices.NimbusMessagingHelperProtocol
-import struct MozillaAppServices.NimbusAppSettings
-import typealias MozillaAppServices.NimbusErrorReporter
 
 private let nimbusAppName = "firefox_ios"
 private let NIMBUS_URL_KEY = "NimbusURL"
@@ -78,6 +79,7 @@ enum Experiments {
             shared.globalUserParticipation = studiesSetting && telemetrySetting
         }
     }
+
     static func setLocalExperimentData(payload: String?, storage: UserDefaults = .standard) {
         guard let payload = payload else {
             storage.removeObject(forKey: NIMBUS_LOCAL_DATA_KEY)
@@ -134,35 +136,12 @@ enum Experiments {
     }
 
     /// The `NimbusApi` object. This is the entry point to do anything with the Nimbus SDK on device.
-    public static var shared: NimbusInterface = {
+    static var shared: NimbusInterface = {
         let defaults = UserDefaults.standard
         let isFirstRun: Bool = defaults.object(forKey: NIMBUS_IS_FIRST_RUN_KEY) == nil
         if isFirstRun {
             defaults.set(false, forKey: NIMBUS_IS_FIRST_RUN_KEY)
         }
-
-        let isPhone = UIDevice.current.userInterfaceIdiom == .phone
-
-        var isReviewCheckerEnabled = false
-        if let prefs = UserDefaults(suiteName: AppInfo.sharedContainerIdentifier) {
-            isReviewCheckerEnabled = prefs.bool(forKey: "profile." + PrefsKeys.Shopping2023OptIn)
-        }
-
-        let customTargetingAttributes: [String: Any] =  [
-            "isFirstRun": "\(isFirstRun)",
-            "is_first_run": isFirstRun,
-            "is_phone": isPhone,
-            "is_review_checker_enabled": isReviewCheckerEnabled
-        ]
-
-        // App settings, to allow experiments to target the app name and the
-        // channel. The values given here should match what `Experimenter`
-        // thinks it is.
-        let appSettings = NimbusAppSettings(
-            appName: nimbusAppName,
-            channel: AppConstants.buildChannel.nimbusString,
-            customTargetingAttributes: customTargetingAttributes
-        )
 
         let errorReporter: NimbusErrorReporter = { err in
             DefaultLogger.shared.log("Error in Nimbus SDK",
@@ -180,11 +159,60 @@ enum Experiments {
             return NimbusDisabled.shared
         }
 
+        return buildNimbus(dbPath: dbPath,
+                           errorReporter: errorReporter,
+                           initialExperiments: initialExperiments,
+                           isFirstRun: isFirstRun)
+    }()
+
+    private static func getAppSettings(isFirstRun: Bool) -> NimbusAppSettings {
+        let isPhone = UIDevice.current.userInterfaceIdiom == .phone
+
+        let customTargetingAttributes: [String: Any] = [
+            "isFirstRun": "\(isFirstRun)",
+            "is_first_run": isFirstRun,
+            "is_phone": isPhone,
+            "is_review_checker_enabled": isReviewCheckerEnabled(),
+            "is_default_browser": isDefaultBrowser(),
+        ]
+
+        // App settings, to allow experiments to target the app name and the
+        // channel. The values given here should match what `Experimenter`
+        // thinks it is.
+        return NimbusAppSettings(
+            appName: nimbusAppName,
+            channel: AppConstants.buildChannel.nimbusString,
+            customTargetingAttributes: customTargetingAttributes
+        )
+    }
+
+    private static func isReviewCheckerEnabled() -> Bool {
+        var isReviewCheckerEnabled = false
+        if let prefs = UserDefaults(suiteName: AppInfo.sharedContainerIdentifier) {
+            isReviewCheckerEnabled = prefs.bool(forKey: "profile." + PrefsKeys.Shopping2023OptIn)
+        }
+        return isReviewCheckerEnabled
+    }
+
+    private static func isDefaultBrowser() -> Bool {
+        return UserDefaults.standard.bool(forKey: PrefsKeys.AppleConfirmedUserIsDefaultBrowser)
+    }
+
+    private static func buildNimbus(dbPath: String,
+                                    errorReporter: @escaping NimbusErrorReporter,
+                                    initialExperiments: URL?,
+                                    isFirstRun: Bool) -> NimbusInterface {
         let bundles = [
             Bundle.main,
             Strings.bundle,
-            Strings.bundle.fallbackTranslationBundle(language: "en-US")
+            Strings.bundle.fallbackTranslationBundle(language: "en-US"),
         ].compactMap { $0 }
+
+        let nimbusRecordedContext = RecordedNimbusContext(
+            isFirstRun: isFirstRun,
+            isReviewCheckerEnabled: isReviewCheckerEnabled(),
+            isDefaultBrowser: isDefaultBrowser()
+        )
 
         return NimbusBuilder(dbPath: dbPath)
             .with(url: remoteSettingsURL)
@@ -195,8 +223,9 @@ enum Experiments {
             .with(bundles: bundles)
             .with(featureManifest: FxNimbus.shared)
             .with(commandLineArgs: CommandLine.arguments)
-            .build(appInfo: appSettings)
-    }()
+            .with(recordedContext: nimbusRecordedContext)
+            .build(appInfo: getAppSettings(isFirstRun: isFirstRun))
+    }
 
     /// A convenience method to initialize the `NimbusApi` object at startup.
     ///
@@ -208,7 +237,7 @@ enum Experiments {
     /// - Parameters:
     ///     - fireURL: an optional file URL that stores the initial experiments document.
     ///     - firstRun: a flag indicating that this is the first time that the app has been run.
-    public static func intialize() {
+    static func initialize() {
         // Getting the singleton first time initializes it.
         let nimbus = Experiments.shared
 
@@ -229,13 +258,9 @@ extension Experiments {
         return try? sdk.createMessageHelper(additionalContext: context)
     }
 
-    public static var messaging: GleanPlumbMessageManagerProtocol = {
-        GleanPlumbMessageManager()
-    }()
+    public static var messaging: GleanPlumbMessageManagerProtocol = GleanPlumbMessageManager()
 
-    public static var events: NimbusEventStore = {
-        sdk.events
-    }()
+    public static var events: NimbusEventStore = sdk.events
 
     public static var sdk: NimbusInterface = shared
 }

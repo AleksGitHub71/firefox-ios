@@ -99,8 +99,9 @@ class JumpBackInViewModel: FeatureFlaggable {
     }
 
     private func updateSectionLayout(for traitCollection: UITraitCollection,
-                                     isPortrait: Bool = UIWindow.isPortrait,
-                                     device: UIUserInterfaceIdiom = UIDevice.current.userInterfaceIdiom) {
+                                     isPortrait: Bool,
+                                     device: UIUserInterfaceIdiom,
+                                     orientation: UIDeviceOrientation) {
         let isPhoneInLandscape = device == .phone && !isPortrait
         let isPadInPortrait = device == .pad && isPortrait
         let isPadInLandscapeTwoThirdSplit = isPadInLandscapeSplit(split: 2/3, isPortrait: isPortrait, device: device)
@@ -138,7 +139,7 @@ class JumpBackInViewModel: FeatureFlaggable {
     }
 
     private func isPadInLandscapeSplit(split: CGFloat,
-                                       isPortrait: Bool = UIWindow.isPortrait,
+                                       isPortrait: Bool,
                                        device: UIUserInterfaceIdiom = UIDevice.current.userInterfaceIdiom) -> Bool {
         guard device == .pad,
               !isPortrait,
@@ -349,10 +350,14 @@ extension JumpBackInViewModel: HomepageViewModelProtocol {
     func refreshData(for traitCollection: UITraitCollection,
                      size: CGSize,
                      isPortrait: Bool = UIWindow.isPortrait,
-                     device: UIUserInterfaceIdiom = UIDevice.current.userInterfaceIdiom) {
+                     device: UIUserInterfaceIdiom = UIDevice.current.userInterfaceIdiom,
+                     orientation: UIDeviceOrientation = UIDevice.current.orientation) {
+        // UIDevice is not always returning the correct orientation so we check against the window orientation as well
+        let isPortrait = orientation.isPortrait || isPortrait
         updateSectionLayout(for: traitCollection,
                             isPortrait: isPortrait,
-                            device: device)
+                            device: device,
+                            orientation: orientation)
         let maxItemsToDisplay = sectionLayout.maxItemsToDisplay(
             hasAccount: isSyncTabFeatureEnabled,
             device: device
@@ -360,7 +365,7 @@ extension JumpBackInViewModel: HomepageViewModelProtocol {
         refreshData(maxItemsToDisplay: maxItemsToDisplay)
         logger.log("JumpBackIn section shouldShow \(shouldShow)",
                    level: .debug,
-                   category: .homepage)
+                   category: .legacyHomepage)
     }
 
     func updatePrivacyConcernedSection(isPrivate: Bool) {
@@ -449,15 +454,22 @@ extension JumpBackInViewModel: HomepageSectionHandler {
 extension JumpBackInViewModel: JumpBackInDelegate {
     func didLoadNewData() {
         Task { @MainActor in
-            self.recentTabs = await self.jumpBackInDataAdaptor.getRecentTabData()
-            self.recentSyncedTab = await self.jumpBackInDataAdaptor.getSyncedTabData()
-            self.isSyncTabFeatureEnabled = await self.jumpBackInDataAdaptor.hasSyncedTabFeatureEnabled()
+            await self.updateJumpBackInData()
             logger.log("JumpBack didLoadNewData and section shouldShow \(self.shouldShow)",
                        level: .debug,
-                       category: .homepage)
-            guard self.isEnabled else { return }
-
-            self.delegate?.reloadView()
+                       category: .legacyHomepage)
+            reloadView()
         }
+    }
+
+    private func updateJumpBackInData() async {
+        self.recentTabs = await self.jumpBackInDataAdaptor.getRecentTabData()
+        self.recentSyncedTab = await self.jumpBackInDataAdaptor.getSyncedTabData()
+        self.isSyncTabFeatureEnabled = await self.jumpBackInDataAdaptor.hasSyncedTabFeatureEnabled()
+    }
+
+    private func reloadView() {
+        guard self.isEnabled else { return }
+        self.delegate?.reloadView()
     }
 }

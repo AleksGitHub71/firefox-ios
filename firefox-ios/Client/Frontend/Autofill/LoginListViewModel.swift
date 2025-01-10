@@ -3,7 +3,6 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import Common
-import Storage
 import Foundation
 
 import struct MozillaAppServices.EncryptedLogin
@@ -13,6 +12,7 @@ class LoginListViewModel: ObservableObject {
     @Published var logins: [EncryptedLogin] = []
 
     private let tabURL: URL
+    private let field: FocusFieldType
     private let loginStorage: LoginStorage
     private let logger: Logger
     let onLoginCellTap: (EncryptedLogin) -> Void
@@ -24,12 +24,14 @@ class LoginListViewModel: ObservableObject {
 
     init(
         tabURL: URL,
+        field: FocusFieldType,
         loginStorage: LoginStorage,
         logger: Logger,
         onLoginCellTap: @escaping (EncryptedLogin) -> Void,
         manageLoginInfoAction: @escaping () -> Void
     ) {
         self.tabURL = tabURL
+        self.field = field
         self.loginStorage = loginStorage
         self.logger = logger
         self.onLoginCellTap = onLoginCellTap
@@ -40,6 +42,7 @@ class LoginListViewModel: ObservableObject {
         do {
             let logins = try await loginStorage.listLogins()
             self.logins = logins.filter { login in
+                if field == FocusFieldType.username && login.decryptedUsername.isEmpty { return false }
                 guard let recordHostnameURL = URL(string: login.hostname) else { return false }
                 return recordHostnameURL.baseDomain == tabURL.baseDomain
             }
@@ -58,7 +61,7 @@ class MockLogger: Logger {
     var savedLevel: LoggerLevel?
     var savedCategory: LoggerCategory?
 
-    func setup(sendUsageData: Bool) {}
+    func setup(sendCrashReports: Bool) {}
     func configure(crashManager: Common.CrashManager) {}
     func copyLogsToDocuments() {}
     func logCustomError(error: Error) {}

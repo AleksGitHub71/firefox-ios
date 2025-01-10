@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
+import Common
 import Foundation
 
 /// This Activity Item Provider subclass does two things that are non-standard behaviour:
@@ -14,29 +15,39 @@ import Foundation
 ///
 /// Note that not all applications use the Subject. For example OmniFocus ignores it, so we need to do both.
 
-class TitleActivityItemProvider: UIActivityItemProvider {
+class TitleActivityItemProvider: UIActivityItemProvider, @unchecked Sendable {
+    private let title: String
+
+    /// We do not want to append titles to website URL shares to the pasteboard, Messages, and Mail body.
+    /// However, this provider will append the title to the Mail subject line.
     static let activityTypesToIgnore = [
         UIActivity.ActivityType.copyToPasteboard,
         UIActivity.ActivityType.message,
-        UIActivity.ActivityType.mail]
+        UIActivity.ActivityType.mail
+    ]
 
     init(title: String) {
+        self.title = title
+
         super.init(placeholderItem: title)
     }
 
-    override var item: Any {
-        if let activityType = activityType {
-            if TitleActivityItemProvider.activityTypesToIgnore.contains(activityType) {
-                return NSNull()
-            }
+    override func activityViewController(
+        _ activityViewController: UIActivityViewController,
+        itemForActivityType activityType: UIActivity.ActivityType?
+    ) -> Any? {
+        // For excluded activites, we don't want to provide any content
+        if let activityType = activityType, TitleActivityItemProvider.activityTypesToIgnore.contains(activityType) {
+            return NSNull()
         }
-        return placeholderItem! as AnyObject
+
+        return title
     }
 
     override func activityViewController(
         _ activityViewController: UIActivityViewController,
         subjectForActivityType activityType: UIActivity.ActivityType?
     ) -> String {
-        return placeholderItem as! String
+        return title
     }
 }

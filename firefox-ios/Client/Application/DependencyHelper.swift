@@ -38,8 +38,13 @@ class DependencyHelper {
         let themeManager: ThemeManager = appDelegate.themeManager
         AppContainer.shared.register(service: themeManager)
 
-        let microsurveyManager = MicrosurveySurfaceManager()
+        let microsurveyManager: MicrosurveyManager = MicrosurveySurfaceManager()
         AppContainer.shared.register(service: microsurveyManager)
+
+        let pocketManager: PocketManagerProvider = PocketManager(
+            pocketAPI: PocketProvider(prefs: profile.prefs)
+        )
+        AppContainer.shared.register(service: pocketManager)
 
         // Tell the container we are done registering
         AppContainer.shared.bootstrap()
