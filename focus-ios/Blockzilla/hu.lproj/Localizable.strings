@@ -71,7 +71,7 @@
 "Autocomplete.addCustomUrlPlaceholder" = "Webcím beillesztése vagy megadása";
 
 /* Label for button to add a custom URL with the + prefix */
-"Autocomplete.addCustomUrlWithPlus" = "+ Egyéni URL hozzáadása";
+"Autocomplete.addCustomUrlWithPlus" = "+ Egyéni webcím hozzáadása";
 
 /* Label for toast alerting a custom URL has been added */
 "Autocomplete.customUrlAdded" = "Új egyéni webcím hozzáadva.";
@@ -277,6 +277,9 @@
 /* Dark theme option in settings menu */
 "Settings.darkTheme" = "Sötét";
 
+/* Description associated with the Crash Reports toggle on settings screen */
+"Settings.detailTextCrashReports" = "Az összeomlás-jelentések lehetővé teszik a böngésző hibáinak diagnosztizálását és javítását.";
+
 /* Description associated to the Search Suggestions toggle on main screen. %@ is the app name (Focus/Klar) */
 "Settings.detailTextSearchSuggestion" = "A %@ elküldi a címsávba írt szöveget a keresőszolgáltatásának.";
 
@@ -382,6 +385,9 @@
 /* Label for the checkbox to toggle Social trackers */
 "Settings.toggleBlockSocial2" = "Közösségi média";
 
+/* Label for Crash Reports toggle on settings screen */
+"Settings.toggleCrashReports" = "Összeomlás-jelentések automatikus elküldése";
+
 /* Label for toggle on settings screen */
 "Settings.toggleFaceID" = "Face ID használata az alkalmazás feloldásához";
 
@@ -443,7 +449,7 @@
 "ShareMenu.RequestDesktop" = "Asztali oldal kérése";
 
 /* Text for the share menu option when a user wants to reload the site as a mobile device */
-"ShareMenu.RequestMobile" = "Mobil oldal kérése";
+"ShareMenu.RequestMobile" = "Mobilos oldal kérése";
 
 /* Text for the share menu option when a user wants to open the current website in the Chrome app. */
 "ShareMenu.ShareOpenChrome" = "Megnyitás a Chrome-ban";

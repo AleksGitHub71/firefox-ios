@@ -277,6 +277,9 @@
 /* Dark theme option in settings menu */
 "Settings.darkTheme" = "Tmavá";
 
+/* Description associated with the Crash Reports toggle on settings screen */
+"Settings.detailTextCrashReports" = "Správy o zlyhaní nám umožňujú diagnostikovať a opraviť problémy s prehliadačom.";
+
 /* Description associated to the Search Suggestions toggle on main screen. %@ is the app name (Focus/Klar) */
 "Settings.detailTextSearchSuggestion" = "%@ bude odosielať vami písaný text vyhľadávaciemu modulu.";
 
@@ -382,6 +385,9 @@
 /* Label for the checkbox to toggle Social trackers */
 "Settings.toggleBlockSocial2" = "Sociálne siete";
 
+/* Label for Crash Reports toggle on settings screen */
+"Settings.toggleCrashReports" = "Automaticky odosielať správy o zlyhaní";
+
 /* Label for toggle on settings screen */
 "Settings.toggleFaceID" = "Na odomknutie aplikácie použiť Face ID";
 
@@ -479,7 +485,7 @@
 "ShowMeHowOnboarding.ButtonText.V2" = "Hotovo";
 
 /* This is the subtitle text for step one that is displayed in the Show Me How Onboarding Screen */
-"ShowMeHowOnboarding.SubtitleStepOne.V2" = "Ťuknite a dlho držte na domovskej obrazovke, kým sa ikony nezačnú chvieť.";
+"ShowMeHowOnboarding.SubtitleStepOne.V2" = "Ťuknite a dlho držte na ploche, kým sa ikony nezačnú chvieť.";
 
 /* This is the subtitle text for step three that is displayed in the Show Me How onboarding screen. %@ is the name of the app (Focus/Klar) */
 "ShowMeHowOnboarding.SubtitleStepThree.V2" = "Vyhľadajte %@. Potom vyberte miniaplikáciu.";
@@ -641,7 +647,7 @@
 "WidgetOnboardingCard.ActionButton" = "Ako na to";
 
 /* Subtitle shown on card view explaining the app has a widget option. %@ is the name of the app (Focus/Klar). */
-"WidgetOnboardingCard.Subtitle" = "Necháme vás v súkromnom prehliadaní, ale nabudúce môžete začať rýchlejšie s miniaplikáciou %@ na domovskej obrazovke.";
+"WidgetOnboardingCard.Subtitle" = "Necháme vás v súkromnom prehliadaní, ale nabudúce môžete začať rýchlejšie s miniaplikáciou %@ na ploche.";
 
 /* Title shown on card view explaining the app has a widget option */
 "WidgetOnboardingCard.Title" = "História prehliadania bola vymazaná! 🎉";

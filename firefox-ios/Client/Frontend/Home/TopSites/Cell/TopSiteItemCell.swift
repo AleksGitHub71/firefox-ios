@@ -142,15 +142,29 @@ class TopSiteItemCell: UICollectionViewCell, ReusableCell {
         homeTopSite = topSite
         titleLabel.text = topSite.title
         accessibilityLabel = topSite.accessibilityLabel
+        accessibilityTraits = .link
 
-        let urlRequest = topSite.site.url
-        var imageURL: URL?
+        let siteURLString = topSite.site.url
+        var imageResource: SiteResource?
 
-        if let site = topSite.site as? SponsoredTile {
-            imageURL = URL(string: site.imageURL, invalidCharacters: false)
+        if let site = topSite.site as? SponsoredTile,
+           let url = URL(string: site.imageURL, invalidCharacters: false) {
+            imageResource = .remoteURL(url: url)
+        } else if let site = topSite.site as? PinnedSite {
+            imageResource = site.faviconResource
+        } else if let site = topSite.site as? SuggestedSite {
+            imageResource = site.faviconResource
+        } else if let siteURL = URL(string: siteURLString),
+                  let domainNoTLD = siteURL.baseDomain?.split(separator: ".").first,
+                  domainNoTLD == "google" {
+            // Exception for Google top sites, which all return blurry low quality favicons that on the home screen.
+            // Return our bundled G icon for all of the Google Suite.
+            // Parse example: "https://drive.google.com/drive/home" > "drive.google.com" > "google"
+            imageResource = GoogleTopSiteManager.Constants.faviconResource
         }
-        let viewModel = FaviconImageViewModel(siteURLString: urlRequest,
-                                              faviconURL: imageURL)
+
+        let viewModel = FaviconImageViewModel(siteURLString: siteURLString,
+                                              siteResource: imageResource)
         imageView.setFavicon(viewModel)
         self.textColor = textColor
 
@@ -255,6 +269,7 @@ extension TopSiteItemCell: ThemeApplicable {
 extension TopSiteItemCell: Blurrable {
     func adjustBlur(theme: Theme) {
         if shouldApplyWallpaperBlur {
+            rootContainer.layoutIfNeeded()
             rootContainer.addBlurEffectWithClearBackgroundAndClipping(using: .systemThickMaterial)
         } else {
             // If blur is disabled set background color

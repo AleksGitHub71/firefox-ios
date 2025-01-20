@@ -3,7 +3,6 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import Common
-import Storage
 import ComponentLibrary
 import WebKit
 
@@ -11,10 +10,12 @@ import WebKit
 class AddressAutofillCoordinator: BaseCoordinator {
     // MARK: - Properties
 
+    typealias BottomSheetCardParentCoordinator = BrowserNavigationHandler & ParentCoordinatorDelegate
     private let profile: Profile
     private let themeManager: ThemeManager
     private let tabManager: TabManager
-    private weak var parentCoordinator: ParentCoordinatorDelegate?
+    private weak var parentCoordinator: BottomSheetCardParentCoordinator?
+    private var windowUUID: WindowUUID { return tabManager.windowUUID }
 
     // MARK: - Initializers
 
@@ -28,7 +29,7 @@ class AddressAutofillCoordinator: BaseCoordinator {
     init(
         profile: Profile,
         router: Router,
-        parentCoordinator: ParentCoordinatorDelegate?,
+        parentCoordinator: BottomSheetCardParentCoordinator?,
         themeManager: ThemeManager = AppContainer.shared.resolve(),
         tabManager: TabManager
     ) {
@@ -46,8 +47,8 @@ class AddressAutofillCoordinator: BaseCoordinator {
     func showAddressAutofill(frame: WKFrameInfo?) {
         let bottomSheetViewModel = BottomSheetViewModel(
             closeButtonA11yLabel: .CloseButtonTitle,
-            closeButtonA11yIdentifier:
-                AccessibilityIdentifiers.Autofill.addressCloseButton)
+            closeButtonA11yIdentifier: AccessibilityIdentifiers.Autofill.addressCloseButton
+        )
 
         let viewModel = AddressListViewModel(
             windowUUID: tabManager.windowUUID,
@@ -75,6 +76,11 @@ class AddressAutofillCoordinator: BaseCoordinator {
                 self.parentCoordinator?.didFinish(from: self)
             }
         }
+        viewModel.manageAddressesInfoAction = { [weak self] in
+            guard let self else { return }
+            parentCoordinator?.show(settings: .addresses, onDismiss: {})
+            parentCoordinator?.didFinish(from: self)
+        }
         let bottomSheetView = AddressAutoFillBottomSheetView(windowUUID: tabManager.windowUUID,
                                                              addressListViewModel: viewModel)
         let hostingController = SelfSizingHostingController(rootView: bottomSheetView)
@@ -85,8 +91,10 @@ class AddressAutofillCoordinator: BaseCoordinator {
                 object: .addressAutofillPromptDismissed
             )
         }
-        let bottomSheetVC = BottomSheetViewController(viewModel: bottomSheetViewModel,
-                                                      childViewController: hostingController)
+        let bottomSheetVC = BottomSheetViewController(
+            viewModel: bottomSheetViewModel,
+            childViewController: hostingController,
+            windowUUID: tabManager.windowUUID)
         TelemetryWrapper.recordEvent(
             category: .action,
             method: .tap,

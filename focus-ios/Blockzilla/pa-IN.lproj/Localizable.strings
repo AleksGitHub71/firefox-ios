@@ -14,7 +14,7 @@
 "About.privateBullet3" = "ਕੂਕੀਜ਼ ਨੂੰ ਹਟਾਉਣ ਦੇ ਨਾਲ ਨਾਲ ਖੋਜ ਅਤੇ ਬਰਾਊਜ਼ਿੰਗ ਅਤੀਤ ਨੂੰ ਮਿਟਾਓ";
 
 /* Label on About screen */
-"About.privateBulletHeader" = "ਇਸ ਨੂੰ ਨਿੱਜੀ ਬਰਾਊਜ਼ਰ ਵਜੋਂ ਵਰਤੋਂ:";
+"About.privateBulletHeader" = "ਇਸ ਨੂੰ ਪ੍ਰਾਈਵੇਟ ਬਰਾਊਜ਼ਰ ਵਜੋਂ ਵਰਤੋਂ:";
 
 /* Label for row in About screen */
 "About.rowHelp" = "ਮਦਦ";
@@ -182,7 +182,7 @@
 "NewOnboarding.Button.Title.V2" = "ਸ਼ੁਰੂ ਕਰੀਏ";
 
 /* Text for a label that indicates the subtitle for the onboarding screen version 2. */
-"NewOnboarding.Subtitle.V2" = "ਤੇਜ਼। ਨਿੱਜੀ। ਬਿਨਾਂ ਰੁਕਵਾਟਾਂ ਦੇ।";
+"NewOnboarding.Subtitle.V2" = "ਤੇਜ਼। ਪ੍ਰਾਈਵੇਟ। ਬਿਨਾਂ ਰੁਕਵਾਟਾਂ ਦੇ।";
 
 /* Text for a label that indicates the title of button from onboarding screen */
 "Onboarding.Button.Title" = "ਬਰਾਊਜ਼ ਕਰਨਾ ਸ਼ੁਰੂ ਕਰੋ";
@@ -221,7 +221,7 @@
 "Onboarding.Protection.Title" = "ਆਪਣੀ ਮਰਜ਼ੀ ਨਾਲ ਸੁਰੱਖਿਆ ਕਰੋ";
 
 /* Text for a label that indicates the subtitle for onboarding screen. */
-"Onboarding.Subtitle" = "ਆਪਣੀ ਨਿੱਜੀ ਬਰਾਊਜ਼ਿੰਗ ਨੂੰ ਅਗਲੇ ਪੜਾਅ ਉੱਤੇ ਲੈ ਜਾਓ।";
+"Onboarding.Subtitle" = "ਆਪਣੀ ਪ੍ਰਾਈਵੇਟ ਬਰਾਊਜ਼ਿੰਗ ਨੂੰ ਅਗਲੇ ਪੜਾਅ ਉੱਤੇ ਲੈ ਜਾਓ।";
 
 /* Text for a label that indicates the title for onboarding screen. Placeholder can be (Focus or Klar). */
 "Onboarding.Title" = "Firefox %@ ਵਲੋਂ ਜੀ ਆਇਆਂ ਨੂੰ!";
@@ -276,6 +276,9 @@
 
 /* Dark theme option in settings menu */
 "Settings.darkTheme" = "ਗੂੜ੍ਹਾ";
+
+/* Description associated with the Crash Reports toggle on settings screen */
+"Settings.detailTextCrashReports" = "ਕਰੈਸ਼ ਰਿਪੋਰਟਾਂ ਸਾਨੂੰ ਬਰਾਊਜ਼ਰ ਬਾਰੇ ਪੜਤਾਲ ਕਰਨ ਅਤੇ ਮਸਲੇ ਠੀਕ ਕਰਨ ਲਈ ਮਦਦ ਕਰਦੀਆਂ ਹਨ।";
 
 /* Description associated to the Search Suggestions toggle on main screen. %@ is the app name (Focus/Klar) */
 "Settings.detailTextSearchSuggestion" = "ਤੁਹਾਡੇ ਵਲੋਂ ਐਡਰੈਸ ਪੱਟੀ ਵਿੱਚ ਲਿਖੀ ਲਿਖਤ %@ ਤੁਹਾਡੇ ਖੋਜ ਇੰਜਣ ਨੂੰ ਭੇਜੇਗਾ।";
@@ -381,6 +384,9 @@
 
 /* Label for the checkbox to toggle Social trackers */
 "Settings.toggleBlockSocial2" = "ਸਮਾਜਿਕ";
+
+/* Label for Crash Reports toggle on settings screen */
+"Settings.toggleCrashReports" = "ਕਰੈਸ਼ ਰਿਪੋਰਟਾਂ ਨੂੰ ਆਪਣੇ-ਆਪ ਭੇਜੋ";
 
 /* Label for toggle on settings screen */
 "Settings.toggleFaceID" = "ਐਪ ਅਣ-ਲਾਕ ਕਰਨ ਲਈ Face ID ਵਰਤੋਂ";
@@ -569,7 +575,7 @@
 "TooltipBodyText.Privacy" = "ਇਹ ਮੂਲ ਸੈਟਿੰਗਾਂ ਮਜ਼ਬੂਤ ਸੁਰੱਖਿਆ ਦਿੰਦੀਆਂ ਹਨ। ਪਰ ਤੁਹਾਡੀਆਂ ਖਾਸ ਲੋੜਾਂ ਨੂੰ ਪੂਰਾ ਕਰਨ ਲਈ ਸੈਟਿੰਗਾਂ ਨੂੰ ਬਦਲਣਾ ਸੌਖਾ ਹੈ।";
 
 /* This is the body text that is displayed for the Search Bar tooltip */
-"TooltipBodyText.SearchBar" = "ਆਪਣਾ ਨਿੱਜੀ ਬਰਾਊਜ਼ਿੰਗ ਸ਼ੈਸ਼ਨ ਸ਼ੁਰੂ ਕਰੋ ਅਤੇ ਅਸੀਂ ਤੁਹਾਡੇ ਵਾਸਤੇ ਟਰੈਕਰਾਂ ਤੇ ਹੋਰ ਬੁਰੀਆਂ ਉੱਤੇ ਰੋਕ ਲਾਵਾਂਗੇ।";
+"TooltipBodyText.SearchBar" = "ਆਪਣਾ ਪ੍ਰਾਈਵੇਟ ਬਰਾਊਜ਼ਿੰਗ ਸ਼ੈਸ਼ਨ ਸ਼ੁਰੂ ਕਰੋ ਅਤੇ ਅਸੀਂ ਤੁਹਾਡੇ ਵਾਸਤੇ ਟਰੈਕਰਾਂ ਤੇ ਹੋਰ ਬੁਰੀਆਂ ਉੱਤੇ ਰੋਕ ਲਾਵਾਂਗੇ।";
 
 /* This is the body text that is displayed for the Shield icon tooltip. Where placeholder can be (Focus or Klar). */
 "TooltipBodyText.ShieldIcon" = "%@ ਨੇ ਇਸ ਸਾਈਟ ਨੂੰ ਤੁਹਾਡੀ ਜਾਸੂਸੀ ਕਰਨ ਤੋਂ ਰੋਕਿਆ ਹੈ। ਢਾਲ ਨੂੰ ਛੂਹ ਕੇ ਵੇਖੋ ਕਿ ਅਸੀਂ ਕਿਸ ਉੱਤੇ ਪਾਬੰਦੀ ਲਾਈ ਹੈ।";
@@ -641,7 +647,7 @@
 "WidgetOnboardingCard.ActionButton" = "ਮੈਨੂੰ ਦਿਖਾਓ ਕਿਵੇਂ";
 
 /* Subtitle shown on card view explaining the app has a widget option. %@ is the name of the app (Focus/Klar). */
-"WidgetOnboardingCard.Subtitle" = "ਹੁਣ ਤੁਸੀਂ ਆਪਣੀ ਨਿੱਜੀ ਬਰਾਊਜ਼ਿੰਗ ਕਰੋ, ਪਰ ਅਗਲੀ ਵਾਰ ਫ਼ੌਰਨ ਸ਼ੁਰੂ ਕਰਨ ਲਈ ਆਪਣੀ ਮੁੱਖ ਸਕਰੀਨ ਤੋਂ %@ ਵਿਜੈਟ ਵਰਤ ਸਕਦੇ ਹੋ।";
+"WidgetOnboardingCard.Subtitle" = "ਹੁਣ ਤੁਸੀਂ ਆਪਣੀ ਪ੍ਰਾਈਵੇਟ ਬਰਾਊਜ਼ਿੰਗ ਕਰੋ, ਪਰ ਅਗਲੀ ਵਾਰ ਫ਼ੌਰਨ ਸ਼ੁਰੂ ਕਰਨ ਲਈ ਆਪਣੀ ਮੁੱਖ ਸਕਰੀਨ ਤੋਂ %@ ਵਿਜੈਟ ਵਰਤ ਸਕਦੇ ਹੋ।";
 
 /* Title shown on card view explaining the app has a widget option */
 "WidgetOnboardingCard.Title" = "ਬਰਾਊਜ਼ਿੰਗ ਅਤੀਤ ਮਿਟਾਇਆ ਗਿਆ! 🎉";

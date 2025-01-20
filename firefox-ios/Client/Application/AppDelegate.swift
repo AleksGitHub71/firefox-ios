@@ -3,7 +3,6 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import Shared
-import Storage
 import CoreSpotlight
 import UIKit
 import Common
@@ -12,7 +11,7 @@ import TabDataStore
 
 import class MozillaAppServices.Viaduct
 
-class AppDelegate: UIResponder, UIApplicationDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, FeatureFlaggable {
     let logger = DefaultLogger.shared
     var notificationCenter: NotificationProtocol = NotificationCenter.default
     var orientationLock = UIInterfaceOrientationMask.all
@@ -25,7 +24,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     lazy var profile: Profile = BrowserProfile(
         localName: "profile",
-        sendTabDelegate: UIApplication.shared.sendTabDelegate,
+        fxaCommandsDelegate: UIApplication.shared.fxaCommandsDelegate,
         creditCardAutofillEnabled: creditCardAutofillStatus
     )
 
@@ -38,6 +37,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     lazy var backgroundTabLoader: BackgroundTabLoader = {
         return DefaultBackgroundTabLoader(tabQueue: (AppContainer.shared.resolve() as Profile).queue)
     }()
+    lazy var gleanLifecycleObserver = GleanLifecycleObserver()
     private var isLoadingBackgroundTabs = false
 
     private var shutdownWebServer: DispatchSourceTimer?
@@ -108,6 +108,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                    level: .info,
                    category: .lifecycle)
 
+        // Fix iOS simulator builds for Fennec after running unit tests locally [FXIOS-10712]
+        fixSimulatorDevBuild(application)
+
         pushNotificationSetup()
         appLaunchUtil?.setUpPostLaunchDependencies()
         backgroundWorkUtility = BackgroundFetchAndProcessingUtility()
@@ -152,7 +155,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             profile.removeAccount()
         }
 
-        profile.syncManager.applicationDidBecomeActive()
+        profile.syncManager?.applicationDidBecomeActive()
         webServerUtil?.setUpWebServer()
 
         TelemetryWrapper.recordEvent(category: .action, method: .foreground, object: .app)
@@ -162,8 +165,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
         // Cleanup can be a heavy operation, take it out of the startup path. Instead check after a few seconds.
         DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
-            // TODO: testing to see if this fixes https://mozilla-hub.atlassian.net/browse/FXIOS-7632
-            // self?.profile.cleanupHistoryIfNeeded()
+            if self?.featureFlags.isFeatureEnabled(.cleanupHistoryReenabled, checking: .buildOnly) ?? false {
+                self?.profile.cleanupHistoryIfNeeded()
+            }
             self?.ratingPromptManager.updateData()
         }
 
@@ -190,7 +194,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
         TelemetryWrapper.recordEvent(category: .action, method: .background, object: .app)
 
-        profile.syncManager.applicationDidEnterBackground()
+        profile.syncManager?.applicationDidEnterBackground()
 
         let singleShotTimer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
         // 2 seconds is ample for a localhost request to be completed by GCDWebServer.
@@ -243,6 +247,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             let wallpaperManager = WallpaperManager()
             wallpaperManager.checkForUpdates()
         }
+    }
+
+    private func fixSimulatorDevBuild(_ application: UIApplication) {
+        // Corrects an issue for development when running Fennec target in
+        // the simulator after having run unit tests locally.
+        #if targetEnvironment(simulator) && MOZ_CHANNEL_FENNEC
+        let key = "_FennecLaunchedUnitTestDelegate"
+        guard let flagSet = UserDefaults.standard.value(forKey: key) as? Bool, flagSet else { return }
+        // Private API. This code is not present in release builds.
+        application.openSessions.forEach {
+            application.perform(Selector(("_removeSessionFromSessionSet:")), with: $0)
+        }
+        UserDefaults.standard.removeObject(forKey: key)
+        #endif
     }
 }
 

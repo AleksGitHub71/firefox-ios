@@ -51,7 +51,6 @@ class MockBrowserViewController: BrowserViewController {
 
     var didRequestToOpenInNewTabCalled = false
     var didSelectURLCalled = false
-    var didOpenRecentlyClosedSiteInSameTab = 0
     var lastOpenedURL: URL?
     var lastVisitType: VisitType?
     var isPrivate = false
@@ -78,7 +77,7 @@ class MockBrowserViewController: BrowserViewController {
         openBlankNewTabCount += 1
     }
 
-    override func handle(query: String) {
+    override func handle(query: String, isPrivate: Bool) {
         handleQueryCalled = true
         handleQuery = query
         handleQueryCount += 1
@@ -95,7 +94,7 @@ class MockBrowserViewController: BrowserViewController {
         openURLInNewTabURL = url
         openURLInNewTabIsPrivate = isPrivate
         openURLInNewTabCount += 1
-        return Tab(profile: MockProfile(), configuration: .init(), windowUUID: windowUUID)
+        return Tab(profile: MockProfile(), windowUUID: windowUUID)
     }
 
     override func handleQRCode() {
@@ -138,9 +137,5 @@ class MockBrowserViewController: BrowserViewController {
         didSelectURLCalled = true
         lastOpenedURL = url
         lastVisitType = visitType
-    }
-
-    override func openRecentlyClosedSiteInSameTab(_ url: URL) {
-        didOpenRecentlyClosedSiteInSameTab += 1
     }
 }

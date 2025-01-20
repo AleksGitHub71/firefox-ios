@@ -36,8 +36,10 @@ import:
               INACTIVE_NEW_USER:        "is_inactive_new_user"
               ALLOWED_TIPS_NOTIFICATIONS: "allowed_tips_notifications"
 
+              FXA_CURRENTLY_SIGNED_IN: "is_fxa_signed_in == true"
+
               # Behavioral Targeting Events
-              VIEWED_HOMEPAGE:  "'homepage_viewed'|eventLastSeen('Hours') <= 24"
+              SECOND_HOMEPAGE_VIEW:  "'homepage_viewed'|eventSum('Years', 4, 0) >= 2"
 
             actions:
               OPEN_SETTINGS:                      ://deep-link?url=settings/general
@@ -59,6 +61,7 @@ import:
               OPEN_NEW_TAB:                       ://deep-link?url=homepanel/new-tab
               MAKE_DEFAULT_BROWSER:               ://deep-link?url=default-browser/system-settings
               MAKE_DEFAULT_BROWSER_WITH_TUTORIAL: ://deep-link?url=default-browser/tutorial
+              OPEN_SHARE_SHEET:                   ://share-sheet
             styles:
               FALLBACK:
                 priority: 40
