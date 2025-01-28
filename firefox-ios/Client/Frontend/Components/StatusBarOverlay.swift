@@ -63,7 +63,7 @@ class StatusBarOverlay: UIView,
     func resetState(isHomepage: Bool) {
         savedIsHomepage = isHomepage
         // We only need no status bar for one edge case
-        let needsNoStatusBar = isHomepage && wallpaperManager.currentWallpaper.type != .defaultWallpaper && isBottomSearchBar
+        let needsNoStatusBar = isHomepage && wallpaperManager.currentWallpaper.hasImage && isBottomSearchBar
         scrollOffset = needsNoStatusBar ? 0 : 1
         backgroundColor = savedBackgroundColor?.withAlphaComponent(scrollOffset)
     }
@@ -71,8 +71,7 @@ class StatusBarOverlay: UIView,
     // MARK: - ThemeApplicable
 
     func applyTheme(theme: Theme) {
-        let topTabsColor = ToolbarFlagManager.isRefactorEnabled ? theme.colors.layer1 : theme.colors.layer3
-        savedBackgroundColor = hasTopTabs ? topTabsColor : theme.colors.layer1
+        savedBackgroundColor = hasTopTabs ? theme.colors.layer3 : theme.colors.layer1
         backgroundColor = savedBackgroundColor?.withAlphaComponent(scrollOffset)
     }
 

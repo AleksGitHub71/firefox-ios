@@ -55,7 +55,6 @@ protocol URLBarDelegate: AnyObject {
     // Returns either (search query, true) or (url, false).
     func urlBarDisplayTextForURL(_ url: URL?) -> (String?, Bool)
     func urlBarDidBeginDragInteraction(_ urlBar: URLBarView)
-    func urlBarDidPressShare(_ urlBar: URLBarView, shareView: UIView)
     func urlBarPresentCFR(at sourceView: UIView)
 }
 
@@ -65,8 +64,13 @@ protocol URLBarViewProtocol {
     func leaveOverlayMode(reason: URLBarLeaveOverlayModeReason, shouldCancelLoading cancel: Bool)
 }
 
-class URLBarView: UIView, URLBarViewProtocol, AlphaDimmable, TopBottomInterchangeable,
-                    SearchEngineDelegate, SearchBarLocationProvider {
+class URLBarView: UIView,
+                  URLBarViewProtocol,
+                  AlphaDimmable,
+                  TopBottomInterchangeable,
+                  SearchEngineDelegate,
+                  SearchBarLocationProvider,
+                  Autocompletable {
     // Additional UIAppearance-configurable properties
     @objc dynamic lazy var locationBorderColor: UIColor = .clear {
         didSet {
@@ -84,7 +88,7 @@ class URLBarView: UIView, URLBarViewProtocol, AlphaDimmable, TopBottomInterchang
     }
 
     var parent: UIStackView?
-    var searchEngines: SearchEngines?
+    var searchEnginesManager: SearchEnginesManager?
     weak var delegate: URLBarDelegate?
     weak var tabToolbarDelegate: TabToolbarDelegate?
     var helper: TabToolbarHelper?
@@ -100,6 +104,7 @@ class URLBarView: UIView, URLBarViewProtocol, AlphaDimmable, TopBottomInterchang
 
     var toolbarIsShowing = false
     var topTabsIsShowing = false
+    var isMicrosurveyShown = false
 
     var locationTextField: ToolbarTextField?
     private var isActivatingLocationTextField = false
@@ -123,7 +128,9 @@ class URLBarView: UIView, URLBarViewProtocol, AlphaDimmable, TopBottomInterchang
         return locationContainer
     }()
 
-    private let line = UIView()
+    private let line: UIView = .build { view in
+        view.accessibilityIdentifier = AccessibilityIdentifiers.Toolbar.urlBarBorder
+    }
 
     lazy var tabsButton: TabsButton = {
         let tabsButton = TabsButton()
@@ -237,7 +244,7 @@ class URLBarView: UIView, URLBarViewProtocol, AlphaDimmable, TopBottomInterchang
     init(profile: Profile, windowUUID: WindowUUID) {
         self.profile = profile
         self.windowUUID = windowUUID
-        self.searchEngines = SearchEngines(prefs: profile.prefs, files: profile.files)
+        self.searchEnginesManager = SearchEnginesManager(prefs: profile.prefs, files: profile.files)
         super.init(frame: CGRect())
         commonInit()
     }
@@ -247,7 +254,7 @@ class URLBarView: UIView, URLBarViewProtocol, AlphaDimmable, TopBottomInterchang
     }
 
     func searchEnginesDidUpdate() {
-        let engineID = profile.searchEngines.defaultEngine?.engineID ?? "custom"
+        let engineID = profile.searchEnginesManager.defaultEngine?.engineID ?? "custom"
         TelemetryWrapper.recordEvent(
             category: .information,
             method: .change,
@@ -256,9 +263,12 @@ class URLBarView: UIView, URLBarViewProtocol, AlphaDimmable, TopBottomInterchang
             extras: [TelemetryWrapper.EventExtraKey.recordSearchEngineID.rawValue: engineID]
         )
 
-        self.searchIconImageView.image = profile.searchEngines.defaultEngine?.image
-        self.searchIconImageView.largeContentTitle = profile.searchEngines.defaultEngine?.shortName
+        self.searchIconImageView.image = profile.searchEnginesManager.defaultEngine?.image
+        self.searchIconImageView.largeContentTitle = profile.searchEnginesManager.defaultEngine?.shortName
         self.searchIconImageView.largeContentImage = nil
+
+        guard let name = profile.searchEnginesManager.defaultEngine?.shortName else { return }
+        self.searchIconImageView.accessibilityLabel = String(format: .AddressToolbar.SearchEngineA11yLabel, name)
     }
 
     fileprivate func commonInit() {
@@ -283,7 +293,7 @@ class URLBarView: UIView, URLBarViewProtocol, AlphaDimmable, TopBottomInterchang
             addSubview($0)
         }
 
-        profile.searchEngines.delegate = self
+        profile.searchEnginesManager.delegate = self
 
         privateModeBadge.add(toParent: self)
         warningMenuBadge.add(toParent: self)
@@ -372,8 +382,6 @@ class URLBarView: UIView, URLBarViewProtocol, AlphaDimmable, TopBottomInterchang
     }
 
     override func updateConstraints() {
-        super.updateConstraints()
-
         line.snp.remakeConstraints { make in
             if isBottomSearchBar {
                 make.top.equalTo(self)
@@ -459,6 +467,7 @@ class URLBarView: UIView, URLBarViewProtocol, AlphaDimmable, TopBottomInterchang
                 )
             }
         }
+        super.updateConstraints()
     }
 
     @objc
@@ -520,6 +529,10 @@ class URLBarView: UIView, URLBarViewProtocol, AlphaDimmable, TopBottomInterchang
     func hideProgressBar() {
         progressBar.isHidden = true
         progressBar.setProgress(0, animated: false)
+    }
+
+    func updateTopBorderDisplay() {
+        line.isHidden = isBottomSearchBar && isMicrosurveyShown
     }
 
     func updateReaderModeState(_ state: ReaderModeState) {
@@ -820,10 +833,6 @@ extension URLBarView: TabLocationViewDelegate {
 
     func tabLocationViewDidTapReaderMode(_ tabLocationView: TabLocationView) {
         delegate?.urlBarDidPressReaderMode(self)
-    }
-
-    func tabLocationViewDidTapShare(_ tabLocationView: TabLocationView, button: UIButton) {
-        delegate?.urlBarDidPressShare(self, shareView: button)
     }
 
     func tabLocationViewPresentCFR(at sourceView: UIView) {

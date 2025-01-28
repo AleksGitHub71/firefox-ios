@@ -12,6 +12,7 @@ class MockTabManager: TabManager {
     let windowUUID: WindowUUID
     var isRestoringTabs = false
     var selectedTab: Tab?
+    var selectedTabUUID: UUID?
     var backupCloseTab: BackupCloseTab?
     var backupCloseTabs = [Tab]()
 
@@ -32,10 +33,11 @@ class MockTabManager: TabManager {
     var normalActiveTabs = [Tab]()
     var inactiveTabs = [Tab]()
     var privateTabs = [Tab]()
-    var tabDisplayType: TabDisplayType = .TabGrid
 
     var addTabsForURLsCalled = 0
     var addTabsURLs: [URL] = []
+
+    var removeTabsByURLCalled = 0
 
     init(windowUUID: WindowUUID = WindowUUID.XCTestDefaultUUID) {
         self.windowUUID = windowUUID
@@ -60,9 +62,8 @@ class MockTabManager: TabManager {
     }
 
     func addTab(_ request: URLRequest?, afterTab: Tab?, isPrivate: Bool) -> Tab {
-        let configuration = WKWebViewConfiguration()
         let profile = MockProfile()
-        let tab = Tab(profile: profile, configuration: configuration, isPrivate: isPrivate, windowUUID: windowUUID)
+        let tab = Tab(profile: profile, isPrivate: isPrivate, windowUUID: windowUUID)
         tabs.append(tab)
         return tab
     }
@@ -77,7 +78,7 @@ class MockTabManager: TabManager {
 
     func removeDelegate(_ delegate: TabManagerDelegate, completion: (() -> Void)?) {}
 
-    func addTabsForURLs(_ urls: [URL], zombie: Bool, shouldSelectTab: Bool) {
+    func addTabsForURLs(_ urls: [URL], zombie: Bool, shouldSelectTab: Bool, isPrivate: Bool) {
         addTabsForURLsCalled += 1
         addTabsURLs = urls
     }
@@ -91,6 +92,10 @@ class MockTabManager: TabManager {
     func removeTab(_ tabUUID: String) async {}
 
     func removeAllTabs(isPrivateMode: Bool) async {}
+
+    func removeTabs(by urls: [URL]) async {
+        removeTabsByURLCalled += 1
+    }
 
     func undoCloseAllTabs() {}
 
@@ -131,7 +136,7 @@ class MockTabManager: TabManager {
     }
 
     func addPopupForParentTab(profile: Profile, parentTab: Tab, configuration: WKWebViewConfiguration) -> Tab {
-        return Tab(profile: MockProfile(), configuration: WKWebViewConfiguration(), windowUUID: windowUUID)
+        return Tab(profile: MockProfile(), windowUUID: windowUUID)
     }
 
     func makeToastFromRecentlyClosedUrls(_ recentlyClosedTabs: [Tab],
@@ -141,19 +146,22 @@ class MockTabManager: TabManager {
     func undoCloseAllTabsLegacy(recentlyClosedTabs: [Client.Tab], previousTabUUID: String, isPrivate: Bool) {}
 
     @discardableResult
-    func addTab(_ request: URLRequest!,
-                configuration: WKWebViewConfiguration!,
+    func addTab(_ request: URLRequest?,
                 afterTab: Tab?,
                 zombie: Bool,
                 isPrivate: Bool
     ) -> Tab {
-        return Tab(profile: MockProfile(), configuration: WKWebViewConfiguration(), windowUUID: windowUUID)
+        return Tab(profile: MockProfile(), windowUUID: windowUUID)
     }
 
     func backgroundRemoveAllTabs(isPrivate: Bool,
                                  didClearTabs: @escaping (_ tabsToRemove: [Tab],
                                                           _ isPrivate: Bool,
                                                           _ previousTabUUID: String) -> Void) {}
+
+    func findRightOrLeftTab(forRemovedTab removedTab: Tab, withDeletedIndex deletedIndex: Int) -> Tab? {
+        return nil
+    }
 
     // MARK: - Inactive tabs
     func getInactiveTabs() -> [Tab] {
@@ -162,5 +170,5 @@ class MockTabManager: TabManager {
 
     func removeAllInactiveTabs() async {}
 
-    func undoCloseInactiveTabs() {}
+    func undoCloseInactiveTabs() async {}
 }

@@ -168,7 +168,7 @@ class MockMessageDataProtocol: MessageDataProtocol {
     var isControl = true
     var title: String? = "Test"
     var text: String = "This is a test"
-    var buttonLabel: String?
+    var buttonLabel: String? = "This is a test button label"
     var experiment: String?
     var actionParams: [String: String] = [:]
     var microsurveyConfig: MicrosurveyConfig?
@@ -199,7 +199,7 @@ class MockGleanPlumbMessageManagerProtocol: GleanPlumbMessageManagerProtocol {
     }
 
     var onMessagePressedCalled = 0
-    func onMessagePressed(_ message: GleanPlumbMessage, window: WindowUUID?) {
+    func onMessagePressed(_ message: GleanPlumbMessage, window: WindowUUID?, shouldExpire: Bool) {
         onMessagePressedCalled += 1
     }
 
@@ -218,7 +218,7 @@ class MockGleanPlumbMessageManagerProtocol: GleanPlumbMessageManagerProtocol {
 }
 
 // MARK: SpyHomepageMessageCardCell
-class SpyHomepageMessageCardCell: HomepageMessageCardCell {
+class SpyHomepageMessageCardCell: LegacyHomepageMessageCardCell {
     var configureCalled = 0
     override func configure(viewModel: HomepageMessageCardViewModel, theme: Theme) {
         configureCalled += 1

@@ -6,7 +6,7 @@ import Shared
 import Common
 
 // MARK: - Protocol
-protocol FeatureFlaggable { }
+protocol FeatureFlaggable {}
 
 extension FeatureFlaggable {
     var featureFlags: LegacyFeatureFlagsManager {
@@ -35,7 +35,7 @@ class LegacyFeatureFlagsManager: HasNimbusFeatureFlags {
     static let shared = LegacyFeatureFlagsManager()
 
     // MARK: - Variables
-    private var profile: Profile!
+    private var profile: Profile?
     private var coreFeatures: [CoreFeatureFlagID: CoreFlaggableFeature] = [:]
 
     // MARK: - Public methods
@@ -51,9 +51,10 @@ class LegacyFeatureFlagsManager: HasNimbusFeatureFlags {
     public func isFeatureEnabled(_ featureID: NimbusFeatureFlagID,
                                  checking channelsToCheck: FlaggableFeatureCheckOptions
     ) -> Bool {
-        let feature = NimbusFlaggableFeature(withID: featureID, and: profile)
+        guard let profile else { return false }
 
-        let nimbusSetting = feature.isNimbusEnabled(using: nimbusFlags)
+        let feature = NimbusFlaggableFeature(withID: featureID, and: profile)
+        let nimbusSetting = getNimbusOrDebugSetting(with: feature)
         let userSetting = feature.isUserEnabled(using: nimbusFlags)
 
         switch channelsToCheck {
@@ -66,10 +67,21 @@ class LegacyFeatureFlagsManager: HasNimbusFeatureFlags {
         }
     }
 
+    /// Allows us to override nimbus feature flags for a specific build using the debug menu
+    private func getNimbusOrDebugSetting(with feature: NimbusFlaggableFeature) -> Bool {
+        #if MOZ_CHANNEL_BETA || MOZ_CHANNEL_FENNEC
+        return feature.isDebugEnabled(using: nimbusFlags)
+        #else
+        return feature.isNimbusEnabled(using: nimbusFlags)
+        #endif
+    }
+
     /// Retrieves a custom state for any type of feature that has more than just a
     /// binary state. Further information on return types can be found in
     /// `FlaggableFeatureOptions`
     public func getCustomState<T>(for featureID: NimbusFeatureFlagWithCustomOptionsID) -> T? {
+        guard let profile else { return nil }
+
         let feature = NimbusFlaggableFeature(withID: convertCustomIDToStandard(featureID),
                                              and: profile)
         guard let userSetting = feature.getUserPreference(using: nimbusFlags) else { return nil }
@@ -92,9 +104,19 @@ class LegacyFeatureFlagsManager: HasNimbusFeatureFlags {
     }
 
     /// Set a feature that has a binary state to on or off
-    public func set(feature featureID: NimbusFeatureFlagID, to desiredState: Bool) {
+    public func set(feature featureID: NimbusFeatureFlagID, to desiredState: Bool, isDebug: Bool = false) {
+        guard let profile else { return }
+
         let feature = NimbusFlaggableFeature(withID: featureID, and: profile)
+        #if MOZ_CHANNEL_BETA || MOZ_CHANNEL_FENNEC
+        if isDebug {
+            feature.setDebugPreference(to: desiredState)
+        } else {
+            feature.setUserPreference(to: desiredState)
+        }
+        #else
         feature.setUserPreference(to: desiredState)
+        #endif
     }
 
     /// Set a feature that has a custom state to that custom state. More information
@@ -103,6 +125,8 @@ class LegacyFeatureFlagsManager: HasNimbusFeatureFlags {
         feature featureID: NimbusFeatureFlagWithCustomOptionsID,
         to desiredState: T
     ) {
+        guard let profile else { return }
+
         let feature = NimbusFlaggableFeature(withID: convertCustomIDToStandard(featureID),
                                              and: profile)
         switch featureID {
@@ -134,15 +158,11 @@ class LegacyFeatureFlagsManager: HasNimbusFeatureFlags {
         coreFeatures[.useMockData] = useMockData
 
         let useStagingContileAPI = CoreFlaggableFeature(withID: .useStagingContileAPI,
-                                                        enabledFor: [.beta, .developer])
-        let useStagingSponsoredPocketStoriesAPI = CoreFlaggableFeature(withID: .useStagingSponsoredPocketStoriesAPI,
-                                                                       enabledFor: [.beta, .developer])
-
+                                                        enabledFor: [.developer])
         let useStagingFakespotAPI = CoreFlaggableFeature(withID: .useStagingFakespotAPI,
                                                          enabledFor: [])
 
         coreFeatures[.useStagingContileAPI] = useStagingContileAPI
-        coreFeatures[.useStagingSponsoredPocketStoriesAPI] = useStagingSponsoredPocketStoriesAPI
         coreFeatures[.useStagingFakespotAPI] = useStagingFakespotAPI
     }
 }

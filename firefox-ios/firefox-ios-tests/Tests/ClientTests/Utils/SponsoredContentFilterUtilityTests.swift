@@ -131,14 +131,14 @@ extension SponsoredContentFilterUtilityTests {
                      sponsoredSitesCount: Int) -> [Site] {
         var sites = [Site]()
         (0..<normalSitesCount).forEach { index in
-            let site = Site(url: normalURL,
-                            title: "")
+            let site = Site.createBasicSite(url: normalURL,
+                                            title: "")
             sites.append(site)
         }
 
         (0..<sponsoredSitesCount).forEach { index in
-            let site = Site(url: SponsoredContentFilterUtilityTests.sponsoredStandardURL,
-                            title: "")
+            let site = Site.createBasicSite(url: SponsoredContentFilterUtilityTests.sponsoredStandardURL,
+                                            title: "")
             sites.append(site)
         }
 
@@ -150,18 +150,18 @@ extension SponsoredContentFilterUtilityTests {
                     sponsoredTabsCount: Int) -> [Tab] {
         var tabs = [Tab]()
         (0..<normalTabsCount).forEach { index in
-            let tab = Tab(profile: profile, configuration: WKWebViewConfiguration(), windowUUID: windowUUID)
+            let tab = Tab(profile: profile, windowUUID: windowUUID)
             tab.url = URL(string: normalURL)
             tabs.append(tab)
         }
 
         (0..<emptyURLTabsCount).forEach { index in
-            let tab = Tab(profile: profile, configuration: WKWebViewConfiguration(), windowUUID: windowUUID)
+            let tab = Tab(profile: profile, windowUUID: windowUUID)
             tabs.append(tab)
         }
 
         (0..<sponsoredTabsCount).forEach { index in
-            let tab = Tab(profile: profile, configuration: WKWebViewConfiguration(), windowUUID: windowUUID)
+            let tab = Tab(profile: profile, windowUUID: windowUUID)
             tab.url = URL(string: SponsoredContentFilterUtilityTests.sponsoredStandardURL)
             tabs.append(tab)
         }

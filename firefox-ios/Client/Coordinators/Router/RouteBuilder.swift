@@ -6,10 +6,13 @@ import Foundation
 import CoreSpotlight
 import Shared
 
-final class RouteBuilder {
+final class RouteBuilder: FeatureFlaggable {
+    private var isPrivate = false
     private var prefs: Prefs?
 
-    func configure(prefs: Prefs) {
+    func configure(isPrivate: Bool,
+                   prefs: Prefs) {
+        self.isPrivate = isPrivate
         self.prefs = prefs
     }
 
@@ -25,7 +28,7 @@ final class RouteBuilder {
             let urlQuery = urlScanner.fullURLQueryItem()?.asURL
             // Unless the `open-url` URL specifies a `private` parameter,
             // use the last browsing mode the user was in.
-            let isPrivate = Bool(urlScanner.value(query: "private") ?? "") ?? false
+            let isPrivate = Bool(urlScanner.value(query: "private") ?? "") ?? isPrivate
 
             recordTelemetry(input: host, isPrivate: isPrivate)
 
@@ -66,7 +69,7 @@ final class RouteBuilder {
                 }
 
             case .openText:
-                return .searchQuery(query: urlScanner.value(query: "text") ?? "")
+                return .searchQuery(query: urlScanner.value(query: "text") ?? "", isPrivate: isPrivate)
 
             case .glean:
                 return .glean(url: url)
@@ -87,7 +90,7 @@ final class RouteBuilder {
                 // Widget Quick links - medium - open copied url
                 if !UIPasteboard.general.hasURLs {
                     let searchText = UIPasteboard.general.string ?? ""
-                    return .searchQuery(query: searchText)
+                    return .searchQuery(query: searchText, isPrivate: isPrivate)
                 } else {
                     let url = UIPasteboard.general.url
                     return .search(url: url, isPrivate: isPrivate)
@@ -118,12 +121,30 @@ final class RouteBuilder {
 
             case .fxaSignIn:
                 return nil
+
+            case .sharesheet:
+                guard let shareURLString = urlScanner.value(query: "url"),
+                      let shareURL = URL(string: shareURLString) else {
+                    assertionFailure("Should not be trying to share a bad URL")
+                    return nil
+                }
+
+                // Pass optional share message and subtitle here
+                var shareMessage: ShareMessage?
+                if let titleText = urlScanner.value(query: "title") {
+                    let subtitleText: String? = urlScanner.value(query: "subtitle")
+
+                    shareMessage = ShareMessage(message: titleText, subtitle: subtitleText)
+                }
+
+                // Deeplinks cannot have an associated tab or file, so this must be a website URL `.site` share
+                return .sharesheet(shareType: .site(url: shareURL), shareMessage: shareMessage)
             }
         } else if urlScanner.isHTTPScheme {
             TelemetryWrapper.gleanRecordEvent(category: .action, method: .open, object: .asDefaultBrowser)
-            RatingPromptManager.isBrowserDefault = true
+            DefaultBrowserUtil.isBrowserDefault = true
             // Use the last browsing mode the user was in
-            return .search(url: url, isPrivate: false, options: [.focusLocationField])
+            return .search(url: url, isPrivate: isPrivate, options: [.focusLocationField])
         } else {
             return nil
         }
@@ -176,7 +197,7 @@ final class RouteBuilder {
             return .search(url: nil, isPrivate: true, options: options)
         case .openLastBookmark:
             if let urlToOpen = (shortcutItem.userInfo?[QuickActionInfos.tabURLKey] as? String)?.asURL {
-                return .search(url: urlToOpen, isPrivate: false, options: [.switchToNormalMode])
+                return .search(url: urlToOpen, isPrivate: isPrivate)
             } else {
                 return nil
             }
@@ -189,7 +210,7 @@ final class RouteBuilder {
 
     private func recordTelemetry(input: DeeplinkInput.Host, isPrivate: Bool) {
         switch input {
-        case .deepLink, .fxaSignIn, .glean:
+        case .deepLink, .fxaSignIn, .glean, .sharesheet:
             return
         case .widgetMediumTopSitesOpenUrl:
             TelemetryWrapper.recordEvent(category: .action, method: .open, object: .mediumTopSitesWidget)

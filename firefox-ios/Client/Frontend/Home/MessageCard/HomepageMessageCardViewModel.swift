@@ -48,7 +48,7 @@ class HomepageMessageCardViewModel: MessageSurfaceProtocol {
     func handleMessagePressed() {
         guard let message else { return }
         let uuid = (delegate as? InjectedThemeUUIDIdentifiable)?.windowUUID
-        messagingManager.onMessagePressed(message, window: uuid)
+        messagingManager.onMessagePressed(message, window: uuid, shouldExpire: true)
         dismissClosure?()
     }
 
@@ -108,7 +108,7 @@ extension HomepageMessageCardViewModel: HomepageViewModelProtocol {
 // MARK: - HomepageSectionHandler
 extension HomepageMessageCardViewModel: HomepageSectionHandler {
     func configure(_ cell: UICollectionViewCell, at indexPath: IndexPath) -> UICollectionViewCell {
-        guard let messageCell = cell as? HomepageMessageCardCell else {
+        guard let messageCell = cell as? LegacyHomepageMessageCardCell else {
             return UICollectionViewCell()
         }
 
