@@ -23,7 +23,9 @@ class BrowserViewController: UIViewController {
     private lazy var webViewController: LegacyWebViewController = {
         var menuAction = WebMenuAction.live
         menuAction.openLink = { url in
-            self.submit(url: url, source: .action)
+            if let url = URIFixup.getURL(entry: url.absoluteString) {
+                self.submit(url: url, source: .action)
+            }
         }
         return LegacyWebViewController(trackingProtectionManager: trackingProtectionManager, webMenuAction: menuAction)
     }()
@@ -66,6 +68,7 @@ class BrowserViewController: UIViewController {
     private var themeManager: ThemeManager
     private let shortcutsPresenter = ShortcutsPresenter()
     private let onboardingTelemetry = OnboardingTelemetryHelper()
+    private let gleanUsageReportingMetricsService: GleanUsageReportingMetricsService
 
     private enum URLBarScrollState {
         case collapsed
@@ -106,12 +109,14 @@ class BrowserViewController: UIViewController {
         shortcutManager: ShortcutsManager,
         authenticationManager: AuthenticationManager,
         onboardingEventsHandler: OnboardingEventsHandling,
+        gleanUsageReportingMetricsService: GleanUsageReportingMetricsService,
         themeManager: ThemeManager
     ) {
         self.tipManager = tipManager
         self.shortcutManager = shortcutManager
         self.authenticationManager = authenticationManager
         self.onboardingEventsHandler = onboardingEventsHandler
+        self.gleanUsageReportingMetricsService = gleanUsageReportingMetricsService
         self.themeManager = themeManager
         super.init(nibName: nil, bundle: nil)
         KeyboardHelper.defaultHelper.addDelegate(delegate: self)
@@ -2064,6 +2069,7 @@ extension BrowserViewController: MenuActionable {
             searchEngineManager: searchEngineManager,
             authenticationManager: authenticationManager,
             onboardingEventsHandler: onboardingEventsHandler,
+            gleanUsageReportingMetricsService: gleanUsageReportingMetricsService,
             themeManager: themeManager,
             dismissScreenCompletion: activateUrlBarOnHomeView,
             shouldScrollToSiri: shouldScrollToSiri

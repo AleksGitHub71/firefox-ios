@@ -32,9 +32,9 @@ class BackForwardListViewController: UIViewController,
     private var dismissing = false
     private var currentRow = 0
     private var verticalConstraints: [NSLayoutConstraint] = []
-    var tableViewTopAnchor: NSLayoutConstraint!
-    var tableViewBottomAnchor: NSLayoutConstraint!
-    var tableViewHeightAnchor: NSLayoutConstraint!
+    var tableViewTopAnchor: NSLayoutConstraint?
+    var tableViewBottomAnchor: NSLayoutConstraint?
+    var tableViewHeightAnchor: NSLayoutConstraint?
 
     // MARK: - Theme
     var themeManager: ThemeManager
@@ -53,7 +53,7 @@ class BackForwardListViewController: UIViewController,
 
     lazy var shadow: UIView = .build { _ in }
 
-    var tabManager: TabManager!
+    var tabManager: TabManager?
     weak var browserFrameInfoProvider: BrowserFrameInfoProvider?
     var currentItem: WKBackForwardListItem?
     var listData = [WKBackForwardListItem]()
@@ -103,9 +103,10 @@ class BackForwardListViewController: UIViewController,
         view.addSubview(shadow)
         view.addSubview(tableView)
 
-        let toolBarShouldShow = shouldShowToolbarForTraitCollection(traitCollection)
-        snappedToBottom = toolBarShouldShow || isBottomSearchBar
-        tableViewHeightAnchor = tableView.heightAnchor.constraint(equalToConstant: 0)
+        snappedToBottom = isDisplayedAtBottom(for: traitCollection, isBottomSearchBar: isBottomSearchBar)
+        let tableViewHeightAnchor = tableView.heightAnchor.constraint(equalToConstant: 0)
+        self.tableViewHeightAnchor = tableViewHeightAnchor
+
         NSLayoutConstraint.activate([
             tableViewHeightAnchor,
             tableView.leftAnchor.constraint(equalTo: view.leftAnchor),
@@ -116,11 +117,6 @@ class BackForwardListViewController: UIViewController,
         ])
         remakeVerticalConstraints()
         view.layoutIfNeeded()
-    }
-
-    private func shouldShowToolbarForTraitCollection(_ previousTraitCollection: UITraitCollection) -> Bool {
-        return previousTraitCollection.verticalSizeClass != .compact
-               && previousTraitCollection.horizontalSizeClass != .regular
     }
 
     private func currentTheme() -> Theme {
@@ -184,21 +180,21 @@ class BackForwardListViewController: UIViewController,
         with coordinator: UIViewControllerTransitionCoordinator
     ) {
         super.willTransition(to: newCollection, with: coordinator)
-        if shouldShowToolbarForTraitCollection(newCollection) != snappedToBottom, !isBottomSearchBar {
-            if snappedToBottom {
-                tableViewBottomAnchor.constant = 0
-            } else {
-                tableViewTopAnchor.constant = 0
-            }
-            tableViewHeightAnchor.constant = 0
-            snappedToBottom = !snappedToBottom
+
+        let isDisplayedAtBottom = isDisplayedAtBottom(for: newCollection, isBottomSearchBar: isBottomSearchBar)
+
+        if snappedToBottom != isDisplayedAtBottom {
+            snappedToBottom = isDisplayedAtBottom
+            let anchor = snappedToBottom ? tableViewTopAnchor : tableViewBottomAnchor
+            anchor?.constant = 0
+            tableViewHeightAnchor?.constant = 0
         }
     }
 
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: coordinator)
         let correctHeight = {
-            self.tableViewHeightAnchor.constant = min(
+            self.tableViewHeightAnchor?.constant = min(
                 BackForwardViewUX.RowHeight * CGFloat(self.listData.count),
                 size.height / 2
             )
@@ -207,6 +203,13 @@ class BackForwardListViewController: UIViewController,
             self.remakeVerticalConstraints()
             correctHeight()
         }
+    }
+
+    // the back/forward list can be shown at the top or bottom of the screen
+    // the position depends on the address bar position and whether the navigation toolbar is shown or not
+    private func isDisplayedAtBottom(for traitCollection: UITraitCollection, isBottomSearchBar: Bool) -> Bool {
+        let showNavToolbar = ToolbarHelper().shouldShowNavigationToolbar(for: traitCollection)
+        return showNavToolbar || isBottomSearchBar
     }
 
     func remakeVerticalConstraints() {
@@ -219,7 +222,9 @@ class BackForwardListViewController: UIViewController,
             let keyboardContainerHeight = browserFrameInfo.getOverKeyboardContainerSize().height
             let toolbarContainerheight = browserFrameInfo.getBottomContainerSize().height
             let offset = keyboardContainerHeight + toolbarContainerheight
-            tableViewBottomAnchor = tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -offset)
+            let tableViewBottomAnchor = tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -offset)
+            self.tableViewBottomAnchor = tableViewBottomAnchor
+
             let constraints: [NSLayoutConstraint] = [
                 tableViewBottomAnchor,
                 shadow.bottomAnchor.constraint(equalTo: tableView.topAnchor),
@@ -229,10 +234,12 @@ class BackForwardListViewController: UIViewController,
             verticalConstraints += constraints
         } else {
             let statusBarHeight = UIWindow.keyWindow?.windowScene?.statusBarManager?.statusBarFrame.height ?? 0
-            tableViewTopAnchor = tableView.topAnchor.constraint(
+            let tableViewTopAnchor = tableView.topAnchor.constraint(
                 equalTo: view.topAnchor,
                 constant: browserFrameInfo.getHeaderSize().height + statusBarHeight
             )
+            self.tableViewTopAnchor = tableViewTopAnchor
+
             let constraints: [NSLayoutConstraint] = [
                 tableViewTopAnchor,
                 shadow.topAnchor.constraint(equalTo: tableView.bottomAnchor),
@@ -296,9 +303,9 @@ class BackForwardListViewController: UIViewController,
         let isAboutHomeURL = InternalURL(item.url)?.isAboutHomeURL ?? false
         var site: Site
         if isAboutHomeURL {
-            site = Site(url: item.url.absoluteString, title: .FirefoxHomePage)
+            site = Site.createBasicSite(url: item.url.absoluteString, title: .FirefoxHomePage)
         } else {
-            site = sites[urlString] ?? Site(url: urlString, title: item.title ?? "")
+            site = sites[urlString] ?? Site.createBasicSite(url: urlString, title: item.title ?? "")
         }
 
         let viewModel = BackForwardCellViewModel(site: site,
@@ -312,7 +319,7 @@ class BackForwardListViewController: UIViewController,
     }
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        tabManager.selectedTab?.goToBackForwardListItem(listData[indexPath.item])
+        tabManager?.selectedTab?.goToBackForwardListItem(listData[indexPath.item])
         dismiss(animated: true, completion: nil)
     }
 

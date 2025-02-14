@@ -11,7 +11,7 @@ import WebKit
 import SiteImageView
 import Common
 
-private let browsingActivityType: String = "org.mozilla.ios.firefox.browsing"
+let browsingActivityType = "org.mozilla.ios.firefox.browsing"
 
 private let searchableIndex = CSSearchableIndex.default()
 
@@ -118,13 +118,13 @@ extension UserActivityHandler {
         case .screenshot:
             attributeSet.thumbnailData = tab.screenshot?.pngData()
         case .favicon:
-            if let urlString = tab.url?.absoluteString {
+            if let url = tab.url {
                 let faviconFetcher = DefaultSiteImageHandler.factory()
                 let siteImageModel = SiteImageModel(id: UUID(),
-                                                    expectedImageType: .favicon,
-                                                    siteURLString: urlString)
-                let image = await faviconFetcher.getImage(site: siteImageModel)
-                attributeSet.thumbnailData = image.faviconImage?.pngData()
+                                                    imageType: .favicon,
+                                                    siteURL: url)
+                let image = await faviconFetcher.getImage(model: siteImageModel)
+                attributeSet.thumbnailData = image.pngData()
             }
         default:
             attributeSet.thumbnailData = nil

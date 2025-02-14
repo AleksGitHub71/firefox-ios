@@ -26,9 +26,6 @@ class DependencyHelper {
         let appSessionProvider: AppSessionProvider = appDelegate.appSessionManager
         AppContainer.shared.register(service: appSessionProvider)
 
-        let ratingPromptManager: RatingPromptManager = appDelegate.ratingPromptManager
-        AppContainer.shared.register(service: ratingPromptManager)
-
         let downloadQueue: DownloadQueue = appDelegate.appSessionManager.downloadQueue
         AppContainer.shared.register(service: downloadQueue)
 
@@ -38,8 +35,17 @@ class DependencyHelper {
         let themeManager: ThemeManager = appDelegate.themeManager
         AppContainer.shared.register(service: themeManager)
 
-        let microsurveyManager = MicrosurveySurfaceManager()
+        let microsurveyManager: MicrosurveyManager = MicrosurveySurfaceManager()
         AppContainer.shared.register(service: microsurveyManager)
+
+        let pocketManager: PocketManagerProvider = PocketManager(
+            pocketAPI: PocketProvider(prefs: profile.prefs)
+        )
+        AppContainer.shared.register(service: pocketManager)
+
+        let gleanUsageReportingMetricsService: GleanUsageReportingMetricsService =
+        appDelegate.gleanUsageReportingMetricsService
+        AppContainer.shared.register(service: gleanUsageReportingMetricsService)
 
         // Tell the container we are done registering
         AppContainer.shared.bootstrap()

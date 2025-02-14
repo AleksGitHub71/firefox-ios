@@ -13,7 +13,7 @@ enum ReadabilityOperationResult {
     case timeout
 }
 
-class ReadabilityOperation: Operation {
+class ReadabilityOperation: Operation, @unchecked Sendable {
     let profile: Profile
 
     var url: URL
@@ -46,12 +46,11 @@ class ReadabilityOperation: Operation {
 
         DispatchQueue.main.async(execute: { () in
             let configuration = WKWebViewConfiguration()
-            // TODO: To resolve profile from DI container
-
             let windowManager: WindowManager = AppContainer.shared.resolve()
-            let tab = Tab(profile: self.profile, configuration: configuration, windowUUID: windowManager.activeWindow)
+            let defaultUUID = windowManager.windows.first?.key ?? .unavailable
+            let tab = Tab(profile: self.profile, windowUUID: defaultUUID)
             self.tab = tab
-            tab.createWebview()
+            tab.createWebview(configuration: configuration)
             tab.navigationDelegate = self
 
             let readerMode = ReaderMode(tab: tab)
@@ -99,7 +98,7 @@ class ReadabilityOperation: Operation {
 extension ReadabilityOperation: WKNavigationDelegate {
     func webView(
         _ webView: WKWebView,
-        didFail navigation: WKNavigation!,
+        didFail navigation: WKNavigation?,
         withError error: Error
     ) {
         result = ReadabilityOperationResult.error(error as NSError)
@@ -108,14 +107,14 @@ extension ReadabilityOperation: WKNavigationDelegate {
 
     func webView(
         _ webView: WKWebView,
-        didFailProvisionalNavigation navigation: WKNavigation!,
+        didFailProvisionalNavigation navigation: WKNavigation?,
         withError error: Error
     ) {
         result = ReadabilityOperationResult.error(error as NSError)
         semaphore.signal()
     }
 
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation?) {
         webView.evaluateJavascriptInDefaultContentWorld("\(ReaderModeNamespace).checkReadability()")
     }
 }

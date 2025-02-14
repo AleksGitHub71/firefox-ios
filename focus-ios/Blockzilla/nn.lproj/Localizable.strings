@@ -200,7 +200,7 @@
 "Onboarding.DefaultBrowser.Title.V2" = "%@ er ikkje som andre nettlesarar";
 
 /* Text for a label that indicates the title of the top button from the default browser onboarding screen version 2. */
-"Onboarding.DefaultBrowser.TopButtonTitle.V2" = "Bruk som standard nettleser";
+"Onboarding.DefaultBrowser.TopButtonTitle.V2" = "Bruk som standard nettlesar";
 
 /* Text for a label that indicates the description of history section from onboarding screen. */
 "Onboarding.History.Description" = "Slett nettlesarhistorikken, passorda, infokapslane og hindre uønskte annonsar frå å følgje deg med eit enkelt klikk!";
@@ -274,8 +274,17 @@
 /* Button label for accepting Content blocker alert */
 "Settings.blockOtherYes2" = "Blokker innhalds-sporarar";
 
+/* On the Settings screen, this is the subtitle text for a toggle which controls sending daily usage ping. */
+"Settings.DailyUsagePing.Message" = "Dette hjelper Mozilla med å berekne aktive brukarar.";
+
+/* On the Settings screen, this is the title text for a toggle which controls automatically sending daily usage ping. */
+"Settings.DailyUsagePing.Title" = "Ping for dagleg bruk";
+
 /* Dark theme option in settings menu */
 "Settings.darkTheme" = "Mørkt";
+
+/* Description associated with the Crash Reports toggle on settings screen */
+"Settings.detailTextCrashReports.V2" = "Dette hjelper oss med å diagnostisere og fikse problem med nettlesaren.";
 
 /* Description associated to the Search Suggestions toggle on main screen. %@ is the app name (Focus/Klar) */
 "Settings.detailTextSearchSuggestion" = "%@ sender det du skriv i adressefeltet til søkjemotoren din.";
@@ -353,7 +362,7 @@
 "Settings.sectionPrivacy" = "PERSONVERN";
 
 /* Label title for set as default browser row */
-"Settings.setAsDefaultBrowser" = "Bruk som standard nettleser";
+"Settings.setAsDefaultBrowser" = "Bruk som standard nettlesar";
 
 /* %@ is the name of the app. Description for set as default browser option */
 "Settings.setAsDefaultBrowserDescription" = "Spesifiser at lenker frå nettstadar, e-postmeldingar og meldingar skal opnast automatisk i %@.";
@@ -381,6 +390,9 @@
 
 /* Label for the checkbox to toggle Social trackers */
 "Settings.toggleBlockSocial2" = "Sosialt";
+
+/* Label for Crash Reports toggle on settings screen */
+"Settings.toggleCrashReports" = "Send inn krasjrapportar automatisk";
 
 /* Label for toggle on settings screen */
 "Settings.toggleFaceID" = "Bruk «Face ID» for å låse opp appen";

@@ -37,11 +37,11 @@ final class AppStartupTelemetry {
 
     // MARK: Logins
     func queryLogins() {
-        let searchController = UISearchController()
         let loginsViewModel = PasswordManagerViewModel(
             profile: profile,
-            searchController: searchController,
-            theme: LightTheme()
+            searchController: nil,
+            theme: LightTheme(),
+            loginProvider: profile.logins
         )
         let dataSource = LoginDataSource(viewModel: loginsViewModel)
         loginsViewModel.loadLogins(loginDataSource: dataSource)

@@ -58,13 +58,15 @@ public class BottomSheetViewController: UIViewController,
     private lazy var sheetView: UIView = .build { _ in }
     private lazy var contentView: UIView = .build { _ in }
     private lazy var scrollContentView: UIView = .build { _ in }
-    private var contentViewBottomConstraint: NSLayoutConstraint!
+    private var contentViewBottomConstraint: NSLayoutConstraint?
     private var viewTranslation = CGPoint(x: 0, y: 0)
+    private let windowUUID: WindowUUID
 
     // MARK: Init
     public init(viewModel: BottomSheetViewModel,
                 childViewController: BottomSheetChild,
                 usingDimmedBackground: Bool = false,
+                windowUUID: WindowUUID,
                 notificationCenter: NotificationProtocol = NotificationCenter.default,
                 themeManager: ThemeManager = AppContainer.shared.resolve()) {
         self.viewModel = viewModel
@@ -72,6 +74,7 @@ public class BottomSheetViewController: UIViewController,
         self.notificationCenter = notificationCenter
         self.themeManager = themeManager
         self.useDimmedBackground = usingDimmedBackground
+        self.windowUUID = windowUUID
 
         super.init(nibName: nil, bundle: nil)
 
@@ -100,7 +103,7 @@ public class BottomSheetViewController: UIViewController,
         listenForThemeChange(view)
         setupView()
 
-        contentViewBottomConstraint.constant = childViewController.view.frame.height
+        contentViewBottomConstraint?.constant = childViewController.view.frame.height
         view.layoutIfNeeded()
     }
 
@@ -111,7 +114,7 @@ public class BottomSheetViewController: UIViewController,
 
     override public func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        contentViewBottomConstraint.constant = 0
+        contentViewBottomConstraint?.constant = 0
         UIView.animate(withDuration: viewModel.animationTransitionDuration) {
             self.view.backgroundColor = self.viewModel.backgroundColor
             self.view.layoutIfNeeded()
@@ -136,8 +139,7 @@ public class BottomSheetViewController: UIViewController,
     // MARK: - Theme
 
     public func applyTheme() {
-        guard let uuid = (self.view as? ThemeUUIDIdentifiable)?.currentWindowUUID else { return }
-        contentView.backgroundColor = themeManager.getCurrentTheme(for: uuid).colors.layer1
+        contentView.backgroundColor = themeManager.getCurrentTheme(for: windowUUID).colors.layer1
         sheetView.layer.shadowOpacity = viewModel.shadowOpacity
 
         if useDimmedBackground {
@@ -147,7 +149,7 @@ public class BottomSheetViewController: UIViewController,
     }
 
     public var currentWindowUUID: WindowUUID? {
-        return (self.view as? ThemeUUIDIdentifiable)?.currentWindowUUID
+        return windowUUID
     }
 
     // MARK: - UIGestureRecognizerDelegate
@@ -174,6 +176,8 @@ public class BottomSheetViewController: UIViewController,
         view.accessibilityElements = [closeButton, sheetView]
 
         contentViewBottomConstraint = sheetView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        contentViewBottomConstraint?.isActive = true
+
         let scrollViewHeightConstraint = scrollView.heightAnchor.constraint(
             greaterThanOrEqualTo: scrollContentView.heightAnchor)
 
@@ -191,7 +195,6 @@ public class BottomSheetViewController: UIViewController,
             sheetView.topAnchor.constraint(greaterThanOrEqualTo: view.topAnchor,
                                            constant: BottomSheetViewController.UX.minVisibleTopSpace),
             sheetView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            contentViewBottomConstraint,
             sheetView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
 
             contentView.topAnchor.constraint(equalTo: sheetView.topAnchor),
@@ -256,7 +259,10 @@ public class BottomSheetViewController: UIViewController,
                 self.sheetView.transform = CGAffineTransform(translationX: 0, y: self.viewTranslation.y)
             })
         case .ended:
-            if viewTranslation.y < 200 {
+            let velocity = recognizer.velocity(in: view)
+            if viewTranslation.y >= 200 || viewTranslation.y >= contentView.bounds.height / 2 || velocity.y >= 700 {
+                dismissSheetViewController()
+            } else {
                 UIView.animate(withDuration: UX.animationDuration,
                                delay: 0,
                                usingSpringWithDamping: UX.springWithDamping,
@@ -265,8 +271,6 @@ public class BottomSheetViewController: UIViewController,
                                animations: {
                     self.sheetView.transform = .identity
                 })
-            } else {
-                dismissSheetViewController()
             }
         default:
             break
@@ -282,7 +286,7 @@ public class BottomSheetViewController: UIViewController,
 
     public func dismissSheetViewController(completion: (() -> Void)? = nil) {
         childViewController.willDismiss()
-        contentViewBottomConstraint.constant = childViewController.view.frame.height
+        contentViewBottomConstraint?.constant = childViewController.view.frame.height
         UIView.animate(
             withDuration: viewModel.animationTransitionDuration,
             animations: {

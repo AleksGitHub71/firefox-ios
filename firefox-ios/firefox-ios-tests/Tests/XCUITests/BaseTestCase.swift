@@ -5,18 +5,21 @@
 import Common
 import MappaMundi
 import XCTest
+import Shared
 
 let page1 = "http://localhost:\(serverPort)/test-fixture/find-in-page-test.html"
 let page2 = "http://localhost:\(serverPort)/test-fixture/test-example.html"
 let serverPort = ProcessInfo.processInfo.environment["WEBSERVER_PORT"] ?? "\(Int.random(in: 1025..<65000))"
+let urlBarAddress = XCUIApplication().textFields[AccessibilityIdentifiers.Browser.AddressToolbar.searchTextField]
 
 func path(forTestPage page: String) -> String {
     return "http://localhost:\(serverPort)/test-fixture/\(page)"
 }
 
 // Extended timeout values for mozWaitForElementToExist and mozWaitForElementToNotExist
-let TIMEOUT: TimeInterval = 15
+let TIMEOUT: TimeInterval = 20
 let TIMEOUT_LONG: TimeInterval = 45
+let MAX_SWIPE = 5
 
 class BaseTestCase: XCTestCase {
     var navigator: MMNavigator<FxUserState>!
@@ -47,7 +50,7 @@ class BaseTestCase: XCTestCase {
         // Let's be sure the app is backgrounded
         _ = app.wait(for: XCUIApplication.State.runningBackgroundSuspended, timeout: TIMEOUT)
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        mozWaitForElementToExist(springboard.icons["XCUITests-Runner"], timeout: 10)
+        mozWaitForElementToExist(springboard.icons["XCUITests-Runner"])
         app.activate()
     }
 
@@ -57,8 +60,19 @@ class BaseTestCase: XCTestCase {
         sleep(2)
         swipeStart.press(forDuration: 0.1, thenDragTo: swipeEnd)
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        mozWaitForElementToExist(springboard.icons["XCUITests-Runner"], timeout: 10)
+        mozWaitForElementToExist(springboard.icons["XCUITests-Runner"])
         app.activate()
+    }
+
+    func removeApp() {
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let icon = springboard.icons.containingText("Fennec").element(boundBy: 0)
+        if icon.exists {
+            icon.press(forDuration: 1.5)
+            springboard.buttons["Remove App"].waitAndTap()
+            springboard.alerts.buttons["Delete App"].waitAndTap()
+            springboard.alerts.buttons["Delete"].waitAndTap()
+        }
     }
 
     func setUpScreenGraph() {
@@ -72,6 +86,7 @@ class BaseTestCase: XCTestCase {
             app.activate()
         }
         app.launch()
+        mozWaitForElementToExist(app.windows.otherElements.firstMatch)
     }
 
     func setUpLaunchArguments() {
@@ -120,13 +135,13 @@ class BaseTestCase: XCTestCase {
 
         if firstRunUI.exists {
             firstRunUI.swipeLeft()
-            XCUIApplication().buttons["Start Browsing"].tap()
+            XCUIApplication().buttons["Start Browsing"].waitAndTap()
         }
     }
 
     func waitForExistence(
         _ element: XCUIElement,
-        timeout: TimeInterval = 5.0,
+        timeout: TimeInterval = TIMEOUT,
         file: String = #file,
         line: UInt = #line
     ) {
@@ -136,19 +151,21 @@ class BaseTestCase: XCTestCase {
     // is up to 25x more performant than the above waitForExistence method
     func mozWaitForElementToExist(_ element: XCUIElement, timeout: TimeInterval? = TIMEOUT) {
         let startTime = Date()
-
-        while !element.exists {
-            if let timeout = timeout, Date().timeIntervalSince(startTime) > timeout {
-                XCTFail("Timed out waiting for element \(element) to exist")
-                break
+        guard element.exists else {
+            while !element.exists {
+                if let timeout = timeout, Date().timeIntervalSince(startTime) > timeout {
+                    XCTFail("Timed out waiting for element \(element) to exist in \(timeout) seconds")
+                    break
+                }
+                usleep(10000)
             }
-            usleep(10000)
+            return
         }
     }
 
     func waitForNoExistence(
         _ element: XCUIElement,
-        timeoutValue: TimeInterval = 5.0,
+        timeoutValue: TimeInterval = TIMEOUT,
         file: String = #file,
         line: UInt = #line
     ) {
@@ -190,7 +207,7 @@ class BaseTestCase: XCTestCase {
         _ element: XCUIElement,
         with predicateString: String,
         description: String? = nil,
-        timeout: TimeInterval = 5.0,
+        timeout: TimeInterval = TIMEOUT,
         file: String,
         line: UInt
     ) {
@@ -217,23 +234,26 @@ class BaseTestCase: XCTestCase {
 
     func bookmark() {
         mozWaitForElementToExist(
-            app.buttons[AccessibilityIdentifiers.Toolbar.trackingProtection],
+            app.buttons[AccessibilityIdentifiers.Browser.AddressToolbar.lockIcon],
             timeout: TIMEOUT
         )
+        app.buttons["Save"].tapIfExists()
         navigator.goto(BrowserTabMenu)
-        mozWaitForElementToExist(
-            app.tables.otherElements[StandardImageIdentifiers.Large.bookmark],
-            timeout: TIMEOUT_LONG
-        )
-        app.tables.otherElements[StandardImageIdentifiers.Large.bookmark].tap()
-        navigator.nowAt(BrowserTab)
+        navigator.goto(SaveBrowserTabMenu)
+        navigator.performAction(Action.Bookmark)
     }
 
-    func unbookmark() {
-        navigator.goto(BrowserTabMenu)
-        mozWaitForElementToExist(app.tables.otherElements[StandardImageIdentifiers.Large.bookmarkSlash])
-        app.otherElements[StandardImageIdentifiers.Large.bookmarkSlash].tap()
+    func unbookmark(url: String) {
         navigator.nowAt(BrowserTab)
+        navigator.goto(LibraryPanel_Bookmarks)
+        app.buttons["Edit"].waitAndTap()
+        if #available(iOS 17, *) {
+            app.buttons["Remove " + url].waitAndTap()
+        } else {
+            app.buttons["Delete " + url].waitAndTap()
+        }
+        app.buttons["Delete"].waitAndTap()
+        app.buttons["Done"].waitAndTap()
     }
 
     func checkBookmarks() {
@@ -245,20 +265,26 @@ class BaseTestCase: XCTestCase {
             .otherElements
             .otherElements
             .count
-        let numberOfExpectedRecentlyVisitedBookmarks = 3
+        let numberOfExpectedRecentlyVisitedBookmarks = 2
+        mozWaitForElementToExist(app.scrollViews
+            .cells[AccessibilityIdentifiers.FirefoxHomepage.Bookmarks.itemCell].firstMatch)
         XCTAssertEqual(numberOfRecentlyVisitedBookmarks, numberOfExpectedRecentlyVisitedBookmarks)
     }
 
     func checkBookmarksUpdated() {
         waitForTabsButton()
-        let numberOfRecentlyVisitedBookmarks = app.scrollViews
+        let bookmarksCell = app.scrollViews
             .cells[AccessibilityIdentifiers.FirefoxHomepage.Bookmarks.itemCell]
+        scrollToElement(bookmarksCell)
+        let numberOfRecentlyVisitedBookmarks = bookmarksCell
             .otherElements
             .otherElements
             .otherElements
             .otherElements
             .count
         let numberOfExpectedRecentlyVisitedBookmarks = 1
+        mozWaitForElementToExist(app.scrollViews
+            .cells[AccessibilityIdentifiers.FirefoxHomepage.Bookmarks.itemCell].firstMatch)
         XCTAssertEqual(numberOfRecentlyVisitedBookmarks, numberOfExpectedRecentlyVisitedBookmarks)
     }
 
@@ -273,36 +299,32 @@ class BaseTestCase: XCTestCase {
         userState.url = path(forTestPage: "test-mozilla-book.html")
         navigator.openURL(path(forTestPage: "test-mozilla-book.html"))
         waitUntilPageLoad()
-        mozWaitForElementToExist(app.buttons["Reader View"], timeout: TIMEOUT)
-        app.buttons["Reader View"].tap()
+        app.buttons["Reader View"].waitAndTap()
         waitUntilPageLoad()
-        mozWaitForElementToExist(app.buttons["Add to Reading List"])
-        app.buttons["Add to Reading List"].tap()
+        app.buttons["Add to Reading List"].waitAndTap()
     }
 
     func removeContentFromReaderView() {
-        navigator.nowAt(NewTabScreen)
-        navigator.goto(LibraryPanel_ReadingList)
+        app.segmentedControls["librarySegmentControl"].buttons.element(boundBy: 3).waitAndTap()
         let savedToReadingList = app.tables["ReadingTable"].cells.staticTexts["The Book of Mozilla"]
         mozWaitForElementToExist(savedToReadingList)
 
         // Remove the item from reading list
         savedToReadingList.swipeLeft()
         mozWaitForElementToExist(app.buttons["Remove"])
-        app.buttons["Remove"].tap()
+        app.buttons["Remove"].waitAndTap()
     }
 
      func selectOptionFromContextMenu(option: String) {
-        XCTAssertTrue(app.tables["Context Menu"].cells.otherElements[option].exists)
-        app.tables["Context Menu"].cells.otherElements[option].tap()
+        app.tables["Context Menu"].cells.otherElements[option].waitAndTap()
         mozWaitForElementToNotExist(app.tables["Context Menu"])
     }
 
     func loadWebPage(_ url: String, waitForLoadToFinish: Bool = true, file: String = #file, line: UInt = #line) {
         let app = XCUIApplication()
         UIPasteboard.general.string = url
-        app.textFields["url"].press(forDuration: 2.0)
-        app.tables["Context Menu"].cells[AccessibilityIdentifiers.Photon.pasteAndGoAction].firstMatch.tap()
+        app.textFields[AccessibilityIdentifiers.Browser.AddressToolbar.searchTextField].press(forDuration: 2.0)
+        app.tables["Context Menu"].cells[AccessibilityIdentifiers.Photon.pasteAndGoAction].firstMatch.waitAndTap()
 
         if waitForLoadToFinish {
             let finishLoadingTimeout: TimeInterval = 30
@@ -331,19 +353,18 @@ class BaseTestCase: XCTestCase {
     }
 
     func waitForTabsButton() {
-        mozWaitForElementToExist(app.buttons[AccessibilityIdentifiers.Toolbar.tabsButton], timeout: TIMEOUT)
+        mozWaitForElementToExist(app.buttons[AccessibilityIdentifiers.Toolbar.tabsButton])
     }
 
     func unlockLoginsView() {
         // Press continue button on the password onboarding if it's shown
         if app.buttons[AccessibilityIdentifiers.Settings.Passwords.onboardingContinue].exists {
-            app.buttons[AccessibilityIdentifiers.Settings.Passwords.onboardingContinue].tap()
+            app.buttons[AccessibilityIdentifiers.Settings.Passwords.onboardingContinue].waitAndTap()
         }
 
         let passcodeInput = springboard.otherElements.secureTextFields.firstMatch
-        mozWaitForElementToExist(passcodeInput, timeout: 20)
-        passcodeInput.tap()
-        passcodeInput.typeText("foo\n")
+        mozWaitForElementToExist(passcodeInput)
+        passcodeInput.tapAndTypeText("foo\n")
         mozWaitForElementToNotExist(passcodeInput)
     }
 
@@ -359,9 +380,9 @@ class BaseTestCase: XCTestCase {
         var nrOfSwipes = 0
         while(!element.isVisible() || isHittable && !element.isHittable) && nrOfSwipes < maxNumberOfScreenSwipes {
             if swipe == "down" {
-                swipeableElement.swipeDown()
+                swipeableElement.partialSwipeDown()
             } else {
-                swipeableElement.swipeUp()
+                swipeableElement.partialSwipeUp()
             }
             usleep(1000)
             nrOfSwipes += 1
@@ -378,8 +399,65 @@ class BaseTestCase: XCTestCase {
 
     func dismissSurveyPrompt() {
         if app.buttons[AccessibilityIdentifiers.Microsurvey.Prompt.closeButton].exists {
-            app.buttons[AccessibilityIdentifiers.Microsurvey.Prompt.closeButton].tap()
+            app.buttons[AccessibilityIdentifiers.Microsurvey.Prompt.closeButton].waitAndTap()
         }
+    }
+
+    func mozWaitElementHittable(element: XCUIElement, timeout: Double) {
+        let predicate = NSPredicate(format: "exists == true && hittable == true")
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        let result = XCTWaiter().wait(for: [expectation], timeout: timeout)
+        XCTAssertEqual(result, .completed, "Element did not become hittable in time.")
+    }
+
+    func switchThemeToDarkOrLight(theme: String) {
+        mozWaitForElementToExist(app.buttons[AccessibilityIdentifiers.Toolbar.settingsMenuButton])
+        navigator.nowAt(BrowserTab)
+        navigator.goto(SettingsScreen)
+        navigator.goto(DisplaySettings)
+        mozWaitForElementToExist(app.switches["SystemThemeSwitchValue"])
+        if (app.switches["SystemThemeSwitchValue"].value as? String) == "1" {
+            navigator.performAction(Action.SystemThemeSwitch)
+        }
+        mozWaitForElementToExist(app.cells.staticTexts["Dark"])
+        if theme == "Dark" {
+            app.cells.staticTexts["Dark"].waitAndTap()
+        } else {
+            app.cells.staticTexts["Light"].waitAndTap()
+        }
+        app.buttons["Settings"].waitAndTap()
+        navigator.nowAt(SettingsScreen)
+        app.buttons["Done"].waitAndTap()
+    }
+
+    func openNewTabAndValidateURLisPaste(url: String) {
+        if iPad() {
+            app.buttons[AccessibilityIdentifiers.Toolbar.addNewTabButton].waitAndTap()
+        } else {
+            app.buttons[AccessibilityIdentifiers.Toolbar.homeButton].waitAndTap()
+        }
+        app.textFields[AccessibilityIdentifiers.Browser.AddressToolbar.searchTextField].press(forDuration: 1.5)
+        mozWaitForElementToExist(app.tables["Context Menu"])
+        app.tables.otherElements[AccessibilityIdentifiers.Photon.pasteAction].waitAndTap()
+        let urlBar = app.textFields[AccessibilityIdentifiers.Browser.AddressToolbar.searchTextField]
+        mozWaitForValueContains(urlBar, value: url)
+    }
+
+    func waitForElementsToExist(_ elements: [XCUIElement], timeout: TimeInterval = TIMEOUT, message: String? = nil) {
+        var elementsDict = [XCUIElement: String]()
+        for element in elements {
+            elementsDict[element] = "exists == true"
+        }
+        let expectations = elementsDict.map({
+                XCTNSPredicateExpectation(
+                    predicate: NSPredicate(
+                        format: $0.value
+                    ),
+                    object: $0.key
+                )
+            })
+        let result = XCTWaiter.wait(for: expectations, timeout: timeout)
+        if result == .timedOut { XCTFail(message ?? expectations.description) }
     }
 }
 
@@ -416,6 +494,15 @@ extension XCUIElement {
             tap()
         } else if force {
             coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
+    }
+
+    func tapIfExists(timeout: TimeInterval = 5.0) {
+        let existsPredicate = NSPredicate(format: "exists == true")
+        let expectation = XCTNSPredicateExpectation(predicate: existsPredicate, object: self)
+        let result = XCTWaiter().wait(for: [expectation], timeout: timeout)
+        if result == .completed {
+            self.tap()
         }
     }
 
@@ -491,6 +578,63 @@ extension XCUIElement {
     func isVisible(app: XCUIApplication = XCUIApplication()) -> Bool {
         let visibleScreenFrame = getVisibleScreenFrame(app: app)
         return self.exists && isPartiallyIncluded(rectangleArea: visibleScreenFrame, rectangleToBeIncluded: self.frame)
+    }
+    /// Waits for the UI element and then taps if it exists.
+    func waitAndTap(timeout: TimeInterval? = TIMEOUT) {
+        BaseTestCase().mozWaitForElementToExist(self, timeout: timeout)
+        self.tap()
+    }
+    /// Waits for the UI element and then taps and types the provided text if it exists.
+    func tapAndTypeText(_ text: String, timeout: TimeInterval? = TIMEOUT) {
+        BaseTestCase().mozWaitForElementToExist(self, timeout: timeout)
+        self.tap()
+        self.typeText(text)
+    }
+
+    func tapWithRetry() {
+        waitAndTap()
+        var nrOfTaps = 5
+        while self.isHittable && nrOfTaps > 0 {
+            tap(force: true)
+            nrOfTaps -= 1
+        }
+        if self.isHittable {
+            XCTFail("\(self) was not tapped")
+        }
+    }
+
+    func typeTextWithDelay(_ text: String, delay: TimeInterval) {
+        for character in text {
+            self.typeText(String(character))
+            Thread.sleep(forTimeInterval: delay)
+        }
+    }
+
+    // Swipe up a little less than half the element
+    func partialSwipeUp(distance: CGFloat = 0.5) {
+        let elementBounds = self.frame
+        let centerX = elementBounds.width/2
+        let centerY = elementBounds.height/2
+        // Start cooordinate about from the center of the element, end coordinate at the top
+        let startCoordinate = coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
+            .withOffset(CGVector(dx: centerX, dy: centerY))
+        let endCoordinate = coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
+            .withOffset(CGVector(dx: centerX, dy: centerY - (elementBounds.size.height/2) * distance))
+        startCoordinate.press(forDuration: 0, thenDragTo: endCoordinate)
+    }
+
+    // Swipe down a little less than half the element
+    func partialSwipeDown(distance: CGFloat = 0.5) {
+        let elementBounds = self.frame
+        let centerX = elementBounds.width/2
+        let centerY = elementBounds.height/2
+        // Start cooordinate about from the center of the element, end coordinate at the bottom
+        // Done rather than top to middle to avoid pulling down the notification bar
+        let startCoordinate = coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
+            .withOffset(CGVector(dx: centerX, dy: centerY))
+        let endCoordinate = coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
+            .withOffset(CGVector(dx: centerX, dy: centerY + (elementBounds.size.height/2) * distance))
+        startCoordinate.press(forDuration: 0, thenDragTo: endCoordinate)
     }
 }
 

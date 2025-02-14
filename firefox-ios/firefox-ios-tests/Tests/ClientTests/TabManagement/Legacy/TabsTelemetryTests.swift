@@ -18,8 +18,11 @@ class TabsTelemetryTests: XCTestCase {
         profile = MockProfile()
         inactiveTabsManager = MockInactiveTabsManager()
         LegacyFeatureFlagsManager.shared.initializeDeveloperFeatures(with: profile)
+        // Due to changes allow certain custom pings to implement their own opt-out
+        // independent of Glean, custom pings may need to be registered manually in
+        // tests in order to put them in a state in which they can collect data.
+        Glean.shared.registerPings(GleanMetrics.Pings.shared)
         Glean.shared.resetGlean(clearStores: true)
-        Glean.shared.enableTestingMode()
         DependencyHelperMock().bootstrapDependencies()
     }
 
@@ -31,7 +34,7 @@ class TabsTelemetryTests: XCTestCase {
 
     func testTrackTabsQuantity_withNormalTab_gleanIsCalled() {
         let tabManager = TabManagerImplementation(profile: profile,
-                                                  uuid: .XCTestDefaultUUID,
+                                                  uuid: ReservedWindowUUID(uuid: .XCTestDefaultUUID, isNew: false),
                                                   inactiveTabsManager: inactiveTabsManager)
 
         let tab = tabManager.addTab()
@@ -50,7 +53,8 @@ class TabsTelemetryTests: XCTestCase {
     }
 
     func testTrackTabsQuantity_withPrivateTab_gleanIsCalled() {
-        let tabManager = TabManagerImplementation(profile: profile, uuid: .XCTestDefaultUUID)
+        let tabManager = TabManagerImplementation(profile: profile,
+                                                  uuid: ReservedWindowUUID(uuid: .XCTestDefaultUUID, isNew: false))
         tabManager.addTab(isPrivate: true)
 
         TabsTelemetry.trackTabsQuantity(tabManager: tabManager)
@@ -66,7 +70,7 @@ class TabsTelemetryTests: XCTestCase {
 
     func testTrackTabsQuantity_ensureNoInactiveTabs_gleanIsCalled() {
         let tabManager = TabManagerImplementation(profile: profile,
-                                                  uuid: .XCTestDefaultUUID,
+                                                  uuid: ReservedWindowUUID(uuid: .XCTestDefaultUUID, isNew: false),
                                                   inactiveTabsManager: inactiveTabsManager)
         let tab = tabManager.addTab()
         inactiveTabsManager.activeTabs = [tab]

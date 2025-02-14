@@ -12,10 +12,11 @@ import Foundation
 /// main element wherein they appear. As we continue updating views, all
 /// `.accessibilityIdentifier` identifiers from the client and the tests
 /// should be move here and updated throughout the app.
-public struct AccessibilityIdentifiers {
+struct AccessibilityIdentifiers {
     /// Used for toolbar/URL bar buttons since our classes are built that buttons can live in one or the other
     /// Using only those a11y identifiers for both ensures we have standard way to refer to buttons from iPad to iPhone
     struct Toolbar {
+        static let urlBarBorder = "TabToolbar.urlBarBorder"
         static let settingsMenuButton = "TabToolbar.menuButton"
         static let homeButton = "TabToolbar.homeButton"
         static let trackingProtection = "TabLocationView.trackingProtectionButton"
@@ -43,7 +44,6 @@ public struct AccessibilityIdentifiers {
             static let scanQRCodeButton = "urlBar-scanQRCode"
             static let cancelButton = "urlBar-cancel"
             static let searchTextField = "address"
-            static let url = "url"
         }
 
         struct KeyboardAccessory {
@@ -52,11 +52,9 @@ public struct AccessibilityIdentifiers {
             static let previousButton = "KeyboardAccessory.previousButton"
             static let addressAutofillButton = "KeyboardAccessory.addressAutofillButton"
             static let creditCardAutofillButton = "KeyboardAccessory.creditCardAutofillButton"
-            static let loginAutofillButton = "KeyboardAccessory.loginAutofillButton"
         }
 
         struct AddressToolbar {
-            static let clear = "AddressToolbar.clear"
             static let lockIcon = "AddressToolbar.lockIcon"
             static let searchTextField = "AddressToolbar.address"
             static let searchEngine = "AddressToolbar.searchEngine"
@@ -69,6 +67,100 @@ public struct AccessibilityIdentifiers {
 
     struct ContextualHints {
         static let actionButton = "ContextualHints.ActionButton"
+    }
+
+    struct MainMenu {
+        struct HeaderView {
+            static let mainButton = "MainMenu.MainButton"
+            static let closeButton = "MainMenu.CloseMenuButton"
+        }
+
+        struct NavigationHeaderView {
+            static let backButton = "MainMenu.BackButton"
+            static let title = "MainMenu.Title"
+            static let closeButton = "MainMenu.CloseMenuButton"
+        }
+
+        static let mainMenu = "MainMenu.Menu"
+        static let newTab = "MainMenu.NewTab"
+        static let newPrivateTab = "MainMenu.NewPrivateTab"
+        static let switchToDesktopSite = "MainMenu.SwitchToDesktopSite"
+        static let findInPage = "MainMenu.FindInPage"
+        static let tools = "MainMenu.Tools"
+        static let save = "MainMenu.Save"
+        static let bookmarks = "MainMenu.Bookmarks"
+        static let history = "MainMenu.History"
+        static let downloads = "MainMenu.Downloads"
+        static let passwords = "MainMenu.Passwords"
+        static let getHelp = "MainMenu.GetHelp"
+        static let settings = "MainMenu.Settings"
+        static let whatsNew = "MainMenu.WhatsNew"
+        static let customizeHomepage = "MainMenu.CustomizeHomepage"
+        static let saveToReadingList = "MainMenu.SaveToReadingList"
+        static let addToShortcuts = "MainMenu.AddToShortcuts"
+        static let bookmarkThisPage = "MainMenu.BookmarkThisPage"
+        static let print = "MainMenu.Print"
+        static let share = "MainMenu.Share"
+        static let saveAsPDF = "MainMenu.SaveAsPDF"
+        static let reportBrokenSite = "MainMenu.ReportBrokenSite"
+        static let readerView = "MainMenu.ReaderViewOn"
+        static let nightMode = "MainMenu.NightModeOn"
+        static let zoom = "MainMenu.Zoom"
+    }
+
+    struct UnifiedSearch {
+        struct BottomSheetRow {
+            static let engine = "UnifiedSearch.BottomSheetRow.Engine"
+            static let searchSettings = "UnifiedSearch.BottomSheetRow.SearchSettings"
+        }
+    }
+
+    struct EnhancedTrackingProtection {
+        struct MainScreen {
+            static let clearCookiesButton = "TrackingProtection.ClearCookiesButton"
+            static let trackingProtectionSettingsButton = "TrackingProtection.SettingsButton"
+            static let foxImage = "TrackingProtection.FoxStatusImage"
+            static let shieldImage = "TrackingProtection.ShieldImage"
+            static let lockImage = "TrackingProtection.LockImage"
+            static let arrowImage = "TrackingProtection.ArrowImage"
+            static let domainLabel = "TrackingProtection.DomainTitleLabel"
+            static let domainHeaderLabel = "TrackingProtection.DomainHeaderLabel"
+            static let statusTitleLabel = "TrackingProtection.ConnectionStatusTitleLabel"
+            static let statusBodyLabel = "TrackingProtection.ConnectionStatusBodyLabel"
+            static let trackersBlockedButton = "TrackingProtection.TrackersBlockedButton"
+            static let securityStatusButton = "TrackingProtection.ConnectionSecurityStatusButton"
+            static let toggleViewLabelsContainer = "TrackingProtection.ToggleViewLabelsContainer"
+            static let toggleViewBodyLabel = "TrackingProtection.ToggleViewBodyLabel"
+            static let closeButton = "TrackingProtection.CloseButton"
+            static let faviconImage = "TrackingProtection.FaviconImage"
+        }
+
+        struct DetailsScreen {
+            static let headerView = "TrackingProtectionDetails.HeaderView"
+            static let mainView = "TrackingProtectionDetails.MainView"
+            static let containerView = "TrackingProtectionDetails.BaseView"
+            static let connectionView = "TrackingProtectionDetails.ConnectionView"
+            static let certificatesButton = "TrackingProtectionDetails.CertificatesButton"
+            static let closeButton = "TrackingProtectionDetails.CloseButton"
+            static let backButton = "TrackingProtectionDetails.BackButton"
+            static let titleLabel = "TrackingProtectionDetails.TitleLabel"
+            static let certificatesTitleLabel = "TrackingProtectionDetails.CertificatesTitleLabel"
+            static let tableView = "TrackingProtectionDetails.TableView"
+            static let tableViewHeader = "TrackingProtectionDetails.TableViewHeader"
+            static let sectionLabel = "TrackingProtectionDetails.SectionLabel"
+            static let allSectionItems = "TrackingProtectionDetails.AllSectionItems"
+            static let itemLabel = "TrackingProtectionDetails.ItemLabel"
+        }
+
+        struct BlockedTrackers {
+            static let headerView = "BlockedTrackers.HeaderView"
+            static let mainView = "BlockedTrackers.MainView"
+            static let containerView = "BlockedTrackers.BaseView"
+        }
+
+        struct CertificatesScreen {
+            static let headerView = "CertificatesViewController.HeaderView"
+        }
     }
 
     struct FirefoxHomepage {
@@ -131,10 +223,8 @@ public struct AccessibilityIdentifiers {
             static let itemCell = "SyncedTabCell"
             static let cardTitle = "SyncedTabCardTitle"
             static let showAllButton = "SyncedTabShowAllButton"
-            static let heroImage = "SyncedTabHeroImage"
             static let itemTitle = "SyncedTabItemTitle"
             static let favIconImage = "SyncedTabFavIconImage"
-            static let fallbackFavIconImage = "SyncedTabFallbackFavIconImage"
             static let descriptionLabel = "SyncedTabDescriptionLabel"
         }
     }
@@ -202,7 +292,6 @@ public struct AccessibilityIdentifiers {
         struct AnalysisProgressInfoCard {
             static let card = "Shopping.AnalysisProgressInfoCard.Card"
             static let title = "Shopping.AnalysisProgressInfoCard.Title"
-            static let description = "Shopping.AnalysisProgressInfoCard.Description"
         }
 
         struct NeedsAnalysisInfoCard {
@@ -338,7 +427,6 @@ public struct AccessibilityIdentifiers {
     }
 
     struct TabTray {
-        static let filteredTabs = "filteredTabs"
         static let deleteCloseAllButton = "TabTrayController.deleteButton.closeAll"
         static let deleteCancelButton = "TabTrayController.deleteButton.cancel"
         static let syncedTabs = "Synced Tabs"
@@ -348,6 +436,9 @@ public struct AccessibilityIdentifiers {
         static let syncTabsButton = "syncTabsButtonTabTray"
         static let navBarSegmentedControl = "navBarTabTray"
         static let syncDataButton = "syncDataButton"
+        static let learnMoreButton = "learnMoreButton"
+        static let collectionView = "TabDisplayView.collectionView"
+        static let tabCell = "TabDisplayView.tabCell"
 
         struct InactiveTabs {
             static let headerLabel = "InactiveTabs.headerLabel"
@@ -374,13 +465,19 @@ public struct AccessibilityIdentifiers {
 
         struct BookmarksPanel {
             static let tableView = "Bookmarks List"
+            static let bookmarksCell = "BookmarksPanel.BookmarksCell"
+            static let bookmarksCellDisclosureButton = ".DisclosureButton"
+            static let emptyStateSignInButton = "BookmarksPanel.EmptyState.signInButton"
+            static let titleTextField = "BookmarkDetail.titleTextField"
+            static let urlTextField = "BookmarkDetail.urlTextField"
+            static let bookmarkParentFolderCell = "BookmarksDetail.ParentFolderSelector.FolderCell"
+            static let newFolderCell = "BookmarksDetail.ParentFolderSelector.NewFolderCell"
+            static let saveButton = "BookmarksDetail.SaveButton"
         }
 
         struct HistoryPanel {
             static let tableView = "History List"
-            static let clearHistoryCell = "HistoryPanel.clearHistory"
             static let recentlyClosedCell = "HistoryPanel.recentlyClosedCell"
-            static let syncedHistoryCell = "HistoryPanel.syncedHistoryCell"
         }
 
         struct GroupedList {
@@ -410,6 +507,38 @@ public struct AccessibilityIdentifiers {
             static let card = "wallpaperCard"
             static let title = "wallpaperOnboardingTitle"
             static let description = "wallpaperOnboardingDescription"
+        }
+    }
+
+    struct TermsOfService {
+        static let logo = "TermsOfService.Logo"
+        static let title = "TermsOfService.Title"
+        static let subtitle = "TermsOfService.Subtitle"
+        static let termsOfServiceAgreement = "TermsOfService.TermsOfServiceAgreement"
+        static let privacyNoticeAgreement = "TermsOfService.PrivacyNoticeAgreement"
+        static let manageDataCollectionAgreement = "TermsOfService.ManageDataCollectionAgreement"
+        static let agreeAndContinueButton = "TermsOfService.AgreeAndContinueButton"
+        static let doneButton = "TermsOfService.DoneButton"
+
+        struct PrivacyNotice {
+            static let title = "TermsOfService.PrivacyNotice.Title"
+            static let doneButton = "TermsOfService.PrivacyNotice.DoneButton"
+
+            struct CrashReports {
+                static let contentStackView = "TermsOfService.PrivacyNotice.CrashReports.ContentStackView"
+                static let actionContentView = "TermsOfService.PrivacyNotice.CrashReports.ActionContentView"
+                static let actionTitleLabel = "TermsOfService.PrivacyNotice.CrashReports.ActionTitleLabel"
+                static let actionSwitch = "TermsOfService.PrivacyNotice.CrashReports.ActionSwitch"
+                static let actionDescriptionLabel = "TermsOfService.PrivacyNotice.CrashReports.ActionDescriptionLabel"
+            }
+
+            struct TechnicalData {
+                static let contentStackView = "TermsOfService.PrivacyNotice.TechnicalData.ContentStackView"
+                static let actionContentView = "TermsOfService.PrivacyNotice.TechnicalData.ActionContentView"
+                static let actionTitleLabel = "TermsOfService.PrivacyNotice.TechnicalData.ActionTitleLabel"
+                static let actionSwitch = "TermsOfService.PrivacyNotice.TechnicalData.ActionSwitch"
+                static let actionDescriptionLabel = "TermsOfService.PrivacyNotice.TechnicalData.ActionDescriptionLabel"
+            }
         }
     }
 
@@ -460,13 +589,13 @@ public struct AccessibilityIdentifiers {
 
         struct FirefoxAccount {
             static let continueButton = "Sign up or sign in"
-            static let emailTextFieldChinaFxA = "Email"
             static let emailTextField = "Enter your email"
             static let fxaNavigationBar = "Sync and Save Data"
             static let fxaSettingsButton = "Sync and Save Data"
             static let fxaSignInButton = "EmailSignIn.button"
             static let qrButton = "QRCodeSignIn.button"
             static let qrScanFailedAlertOkButton = "qrCodeAlert.okButton"
+            static let signInButton = "Sign in"
         }
 
         struct Search {
@@ -525,6 +654,7 @@ public struct AccessibilityIdentifiers {
             static let title = "ClearPrivateData"
             static let websiteDataSection = "WebsiteData"
             static let clearPrivateDataSection = "ClearPrivateData"
+            static let clearAllWebsiteData = "ClearAllWebsiteData"
         }
 
         struct Notifications {
@@ -537,6 +667,11 @@ public struct AccessibilityIdentifiers {
 
         struct Address {
             static let title = "AutofillAddress"
+
+            struct Addresses {
+                static let title = "Addresses"
+                static let addAddress = "Add address"
+            }
         }
 
         struct ConnectSetting {
@@ -571,14 +706,20 @@ public struct AccessibilityIdentifiers {
             static let title = "showLinkPreviews"
         }
 
+        struct ClosePrivateTabs {
+            static let title = "ClosePrivateTabs"
+        }
+
         struct SearchBar {
             static let searchBarSetting = "SearchBarSetting"
             static let topSetting = "TopSearchBar"
             static let bottomSetting = "BottomSearchBar"
         }
 
-        struct SendAnonymousUsageData {
-            static let title = "SendAnonymousUsageData"
+        struct SendData {
+            static let sendTechnicalDataTitle = "SendTechnicalData"
+            static let sendCrashReportsTitle = "SendCrashReports"
+            static let sendDailyUsagePingTitle = "SendDailyUsagePing"
         }
 
         struct PrivacyPolicy {
@@ -587,6 +728,10 @@ public struct AccessibilityIdentifiers {
 
         struct ShowIntroduction {
             static let title = "ShowTour"
+        }
+
+        struct SentFromFirefox {
+            static let whatsApp = "SentFromFirefox.WhatsApp"
         }
 
         struct SendFeedback {
@@ -619,6 +764,12 @@ public struct AccessibilityIdentifiers {
 
         struct Tabs {
             static let title = "TabsSetting"
+
+            struct Customize {
+                static let title = "CUSTOMIZE TAB TRAY"
+                static let inactiveTabsSwitch = "Inactive Tabs"
+                static let doneButton = "Done"
+            }
         }
 
         struct Theme {
@@ -681,12 +832,13 @@ public struct AccessibilityIdentifiers {
         static let zoomPageZoomInButton = "ZoomPage.zoomInButton"
         static let zoomPageZoomOutButton = "ZoomPage.zoomOutButton"
         static let zoomPageZoomLevelLabel = "ZoomPage.zoomLevelLabel"
+        static let doneButton = "find.doneButton"
     }
 
     struct FindInPage {
-        static let findInPageCloseButton = "FindInPage.closeButton"
-        static let findNextButton = "FindInPage.find_next"
-        static let findPreviousButton = "FindInPage.find_previous"
+        static let findInPageCloseButton = "find.doneButton"
+        static let findNextButton = "find.nextButton"
+        static let findPreviousButton = "find.previousButton"
     }
 
     struct RememberCreditCard {
@@ -701,6 +853,34 @@ public struct AccessibilityIdentifiers {
         static let addressCloseButton = "Autofill.addressCloseButton"
         static let creditCardCloseButton = "Autofill.creditCardCloseButton"
         static let loginCloseButton = "Autofill.loginCloseButton"
+    }
+
+    enum PasswordGenerator {
+        static let closeButton = "PasswordGenerator.closeButton"
+        static let headerLabel = "PasswordGenerator.headerLabel"
+        static let usePasswordButton = "PasswordGenerator.usePasswordButton"
+        static let headerImage = "PasswordGenerator.headerImage"
+        static let descriptionLabel = "PasswordGenerator.descriptionLabel"
+        static let passwordField = "PasswordGenerator.passwordField"
+        static let passwordRefreshButton = "PasswordGenerator.passwordRefreshButton"
+        static let passwordlabel = "PasswordGenerator.passwordLabel"
+        static let content = "PasswordGenerator.content"
+        static let header = "PasswordGenerator.header"
+        static let keyboardButton = "PasswordGenerator.keyboardButton"
+    }
+
+    struct NativeErrorPage {
+        static let foxImage = "NativeErrorPage.foxImage"
+        static let titleLabel = "NativeErrorPage.titleLabel"
+        static let errorDescriptionLabel = "NativeErrorPage.errorDescriptionLabel"
+        static let reloadButton = "NativeErrorPage.reloadButton"
+    }
+
+    struct SaveLoginAlert {
+        static let saveButton = "SaveLoginPrompt.saveLoginButton"
+        static let notNowButton = "SaveLoginPrompt.dontSaveButton"
+        static let updateButton = "UpdateLoginPrompt.updateButton"
+        static let dontUpdateButton = "UpdateLoginPrompt.dontUpdateButton"
     }
 }
 // swiftlint:enable line_length

@@ -10,7 +10,6 @@ class PrivateModeButton: ToggleButton, PrivateModeUI {
     override init(frame: CGRect) {
         super.init(frame: frame)
         accessibilityLabel = .TabTrayToggleAccessibilityLabel
-        accessibilityHint = .TabTrayToggleAccessibilityHint
         let maskImage = UIImage(named: StandardImageIdentifiers.Large.privateMode)?
             .withRenderingMode(.alwaysTemplate)
         setImage(maskImage, for: [])
@@ -24,16 +23,19 @@ class PrivateModeButton: ToggleButton, PrivateModeUI {
     }
 
     func applyUIMode(isPrivate: Bool, theme: Theme) {
+        let colors = theme.colors
         isSelected = isPrivate
 
-        tintColor = isPrivate ? theme.colors.iconOnColor : theme.colors.iconPrimary
+        tintColor = isPrivate ? colors.iconOnColor : colors.iconPrimary
         imageView?.tintColor = tintColor
 
         accessibilityValue = isSelected ? .TabTrayToggleAccessibilityValueOn : .TabTrayToggleAccessibilityValueOff
     }
 
-    func applyTheme(theme: Theme) {
-        tintColor = isSelected ? theme.colors.iconOnColor : theme.colors.iconPrimary
+    override func applyTheme(theme: Theme) {
+        super.applyTheme(theme: theme)
+        let colors = theme.colors
+        tintColor = isSelected ? colors.iconOnColor : colors.iconPrimary
         imageView?.tintColor = tintColor
     }
 }

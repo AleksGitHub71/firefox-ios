@@ -234,9 +234,11 @@ private extension WallpaperSettingsViewController {
                         delay: Toast.UX.toastDelayBefore,
                         duration: Toast.UX.toastDismissAfter) { toast in
             [
-                toast.leadingAnchor.constraint(equalTo: self.view.leadingAnchor),
-                toast.trailingAnchor.constraint(equalTo: self.view.trailingAnchor),
-                toast.bottomAnchor.constraint(equalTo: self.view.bottomAnchor)
+                toast.leadingAnchor.constraint(equalTo: self.view.leadingAnchor,
+                                               constant: Toast.UX.toastSidePadding),
+                toast.trailingAnchor.constraint(equalTo: self.view.trailingAnchor,
+                                                constant: -Toast.UX.toastSidePadding),
+                toast.bottomAnchor.constraint(equalTo: self.view.safeAreaLayoutGuide.bottomAnchor)
             ]
         }
     }
@@ -265,7 +267,7 @@ private extension WallpaperSettingsViewController {
                 case .failure(let error):
                     self?.logger.log("Could not download and set wallpaper: \(error.localizedDescription)",
                                      level: .warning,
-                                     category: .homepage)
+                                     category: .legacyHomepage)
                     self?.showError(error) { _ in
                         self?.downloadAndSetWallpaper(at: indexPath)
                     }

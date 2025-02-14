@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
+import Common
 import Foundation
 
 enum HomepageSectionType: Int, CaseIterable {
@@ -26,32 +27,32 @@ enum HomepageSectionType: Int, CaseIterable {
 
     var cellIdentifier: String {
         switch self {
-        case .homepageHeader: return HomepageHeaderCell.cellIdentifier
-        case .messageCard: return HomepageMessageCardCell.cellIdentifier
+        case .homepageHeader: return LegacyHomepageHeaderCell.cellIdentifier
+        case .messageCard: return LegacyHomepageMessageCardCell.cellIdentifier
         // Top sites has more than 1 cell type, dequeuing is done through FxHomeSectionHandler protocol
         case .topSites: return ""
         // Pocket has more than 1 cell type, dequeuing is done through FxHomeSectionHandler protocol
         case .pocket: return ""
         // JumpBackIn has more than 1 cell type, dequeuing is done through FxHomeSectionHandler protocol
         case .jumpBackIn: return ""
-        case .bookmarks: return BookmarksCell.cellIdentifier
+        case .bookmarks: return LegacyBookmarksCell.cellIdentifier
         case .historyHighlights: return HistoryHighlightsCell.cellIdentifier
         case .customizeHome: return CustomizeHomepageSectionCell.cellIdentifier
         }
     }
 
     static var cellTypes: [ReusableCell.Type] {
-        return [HomepageHeaderCell.self,
-                HomepageMessageCardCell.self,
+        return [LegacyHomepageHeaderCell.self,
+                LegacyHomepageMessageCardCell.self,
                 TopSiteItemCell.self,
                 EmptyTopSiteCell.self,
-                JumpBackInCell.self,
+                LegacyJumpBackInCell.self,
                 PocketDiscoverCell.self,
-                PocketStandardCell.self,
-                BookmarksCell.self,
+                LegacyPocketStandardCell.self,
+                LegacyBookmarksCell.self,
                 HistoryHighlightsCell.self,
                 CustomizeHomepageSectionCell.self,
-                SyncedTabCell.self
+                LegacySyncedTabCell.self
         ]
     }
 

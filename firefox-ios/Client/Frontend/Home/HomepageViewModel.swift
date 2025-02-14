@@ -198,7 +198,6 @@ class HomepageViewModel: FeatureFlaggable, InjectedThemeUUIDIdentifiable {
         guard !viewAppeared else { return }
 
         viewAppeared = true
-        Experiments.events.recordEvent(BehavioralTargetingEvent.homepageViewed)
         nimbus.features.homescreenFeature.recordExposure()
         TelemetryWrapper.recordEvent(category: .action,
                                      method: .view,
@@ -231,7 +230,7 @@ class HomepageViewModel: FeatureFlaggable, InjectedThemeUUIDIdentifiable {
         }
         logger.log("Homepage amount of sections shown \(shownSections.count)",
                    level: .debug,
-                   category: .homepage)
+                   category: .legacyHomepage)
     }
 
     func refreshData(for traitCollection: UITraitCollection, size: CGSize) {
@@ -240,7 +239,8 @@ class HomepageViewModel: FeatureFlaggable, InjectedThemeUUIDIdentifiable {
             $0.refreshData(for: traitCollection,
                            size: size,
                            isPortrait: UIWindow.isPortrait,
-                           device: UIDevice.current.userInterfaceIdiom)
+                           device: UIDevice.current.userInterfaceIdiom,
+                           orientation: UIDevice.current.orientation)
         }
     }
 

@@ -11,40 +11,40 @@ struct ButtonToastViewModel {
     var descriptionText: String?
     var imageName: String?
     var buttonText: String?
-    var textAlignment: NSTextAlignment = .left
 }
 
 class ButtonToast: Toast {
     struct UX {
         static let delay = DispatchTimeInterval.milliseconds(900)
-        static let padding: CGFloat = 15
-        static let buttonPadding: CGFloat = 10
-        static let buttonBorderRadius: CGFloat = 5
+        static let stackViewSpacing: CGFloat = 8
+        static let spacing: CGFloat = 8
+        static let buttonPadding: CGFloat = 8
+        static let buttonBorderRadius: CGFloat = 8
         static let buttonBorderWidth: CGFloat = 1
-        static let widthOffset: CGFloat = 20
+        static let topBottomButtonPadding: CGFloat = 8
     }
 
     // MARK: - UI
-    private var horizontalStackView: UIStackView = .build { stackView in
-        stackView.axis = .horizontal
-        stackView.alignment = .center
-        stackView.spacing = UX.padding
+    private var contentStackView: UIStackView = .build { stackView in
+        stackView.spacing = UX.stackViewSpacing
     }
 
     private var imageView: UIImageView = .build { imageView in }
 
     private var labelStackView: UIStackView = .build { stackView in
         stackView.axis = .vertical
-        stackView.alignment = .fill
+        stackView.alignment = .leading
+        stackView.setContentCompressionResistancePriority(.required, for: .vertical)
+        stackView.setContentCompressionResistancePriority(.required, for: .horizontal)
     }
 
     private var titleLabel: UILabel = .build { label in
-        label.font = FXFontStyles.Bold.subheadline.scaledFont()
+        label.font = FXFontStyles.Regular.subheadline.scaledFont()
         label.numberOfLines = 0
     }
 
     private var descriptionLabel: UILabel = .build { label in
-        label.font = FXFontStyles.Bold.footnote.scaledFont()
+        label.font = FXFontStyles.Regular.footnote.scaledFont()
         label.numberOfLines = 0
     }
 
@@ -66,22 +66,22 @@ class ButtonToast: Toast {
 
         self.completionHandler = completion
 
-        self.clipsToBounds = true
+        clipsToBounds = true
         let createdToastView = createView(viewModel: viewModel)
-        self.addSubview(createdToastView)
+        addSubview(createdToastView)
 
         NSLayoutConstraint.activate([
-            toastView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            toastView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            toastView.heightAnchor.constraint(equalTo: heightAnchor),
+            toastView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Toast.UX.shadowVerticalSpacing),
+            toastView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Toast.UX.shadowVerticalSpacing),
+            toastView.heightAnchor.constraint(equalTo: heightAnchor, constant: -Toast.UX.shadowHorizontalSpacing),
 
-            heightAnchor.constraint(greaterThanOrEqualToConstant: Toast.UX.toastHeight)
+            heightAnchor.constraint(greaterThanOrEqualToConstant: Toast.UX.toastHeightWithShadow)
         ])
 
         animationConstraint = toastView.topAnchor.constraint(greaterThanOrEqualTo: topAnchor,
-                                                             constant: Toast.UX.toastHeight)
+                                                             constant: Toast.UX.toastHeightWithShadow)
         animationConstraint?.isActive = true
-        if let theme = theme {
+        if let theme {
             applyTheme(theme: theme)
         }
     }
@@ -93,36 +93,29 @@ class ButtonToast: Toast {
     private func createView(viewModel: ButtonToastViewModel) -> UIView {
         if let imageName = viewModel.imageName {
             imageView = UIImageView(image: UIImage.templateImageNamed(imageName))
-            horizontalStackView.addArrangedSubview(imageView)
+            contentStackView.addArrangedSubview(imageView)
         }
 
-        titleLabel.textAlignment = viewModel.textAlignment
         titleLabel.text = viewModel.labelText
-
         labelStackView.addArrangedSubview(titleLabel)
-
         if let descriptionText = viewModel.descriptionText {
             titleLabel.lineBreakMode = .byClipping
             titleLabel.numberOfLines = 1 // if showing a description we cant wrap to the second line
             titleLabel.adjustsFontSizeToFitWidth = true
 
-            descriptionLabel.textAlignment = viewModel.textAlignment
             descriptionLabel.text = descriptionText
             labelStackView.addArrangedSubview(descriptionLabel)
         }
 
-        horizontalStackView.addArrangedSubview(labelStackView)
-        setupPaddedButton(stackView: horizontalStackView, buttonText: viewModel.buttonText)
-        toastView.addSubview(horizontalStackView)
+        contentStackView.addArrangedSubview(labelStackView)
+        setupPaddedButton(stackView: contentStackView, buttonText: viewModel.buttonText)
+        toastView.addSubview(contentStackView)
 
         NSLayoutConstraint.activate([
-            labelStackView.centerYAnchor.constraint(equalTo: horizontalStackView.centerYAnchor),
-
-            horizontalStackView.leadingAnchor.constraint(equalTo: toastView.leadingAnchor, constant: UX.padding),
-            horizontalStackView.trailingAnchor.constraint(equalTo: toastView.trailingAnchor),
-            horizontalStackView.bottomAnchor.constraint(equalTo: toastView.safeAreaLayoutGuide.bottomAnchor),
-            horizontalStackView.topAnchor.constraint(equalTo: toastView.topAnchor),
-            horizontalStackView.heightAnchor.constraint(equalToConstant: Toast.UX.toastHeight),
+            contentStackView.leadingAnchor.constraint(equalTo: toastView.leadingAnchor, constant: UX.spacing),
+            contentStackView.trailingAnchor.constraint(equalTo: toastView.trailingAnchor, constant: -UX.spacing),
+            contentStackView.bottomAnchor.constraint(equalTo: toastView.bottomAnchor, constant: -UX.spacing),
+            contentStackView.topAnchor.constraint(equalTo: toastView.topAnchor, constant: UX.spacing)
         ])
         return toastView
     }
@@ -130,29 +123,17 @@ class ButtonToast: Toast {
     func setupPaddedButton(stackView: UIStackView, buttonText: String?) {
         guard let buttonText = buttonText else { return }
 
-        let paddedView = UIView()
-        paddedView.translatesAutoresizingMaskIntoConstraints = false
-        stackView.addArrangedSubview(paddedView)
-
+        stackView.addArrangedSubview(roundedButton)
         roundedButton.setTitle(buttonText, for: [])
-        paddedView.addSubview(roundedButton)
 
         NSLayoutConstraint.activate([
             roundedButton.heightAnchor.constraint(
                 equalToConstant: roundedButton.titleLabel!.intrinsicContentSize.height + 2 * UX.buttonPadding),
             roundedButton.widthAnchor.constraint(
-                equalToConstant: roundedButton.titleLabel!.intrinsicContentSize.width + 2 * UX.buttonPadding),
-            roundedButton.centerYAnchor.constraint(equalTo: paddedView.centerYAnchor),
-            roundedButton.centerXAnchor.constraint(equalTo: paddedView.centerXAnchor),
-
-            paddedView.topAnchor.constraint(equalTo: stackView.topAnchor),
-            paddedView.bottomAnchor.constraint(equalTo: stackView.bottomAnchor),
-            paddedView.widthAnchor.constraint(equalTo: roundedButton.widthAnchor, constant: UX.widthOffset)
+                equalToConstant: roundedButton.titleLabel!.intrinsicContentSize.width + 2 * UX.buttonPadding)
         ])
 
         roundedButton.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(buttonPressed)))
-
-        paddedView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(buttonPressed)))
     }
 
     override func applyTheme(theme: Theme) {
@@ -165,10 +146,66 @@ class ButtonToast: Toast {
         roundedButton.layer.borderColor = theme.colors.borderInverted.cgColor
     }
 
+    override func adjustLayoutForA11ySizeCategory() {
+        let contentSizeCategory = UIApplication.shared.preferredContentSizeCategory
+        if contentSizeCategory.isAccessibilityCategory {
+            contentStackView.axis = .vertical
+            contentStackView.alignment = .leading
+            contentStackView.distribution = .fillProportionally
+        } else {
+            contentStackView.axis = .horizontal
+            contentStackView.alignment = .center
+            contentStackView.distribution = .fill
+        }
+
+        setNeedsLayout()
+    }
+
     // MARK: - Button action
     @objc
     func buttonPressed() {
         completionHandler?(true)
         dismiss(true)
+    }
+}
+
+@available(iOS 16.0, *)
+class PasteControlToast: ButtonToast {
+    private var theme: Theme?
+    private var pasteControlTarget: UIViewController?
+
+    private lazy var pasteControl: UIPasteControl = {
+        let pasteControlConfig = UIPasteControl.Configuration()
+        pasteControlConfig.displayMode = .labelOnly
+        pasteControlConfig.baseForegroundColor = theme?.colors.textInverted
+        pasteControlConfig.baseBackgroundColor = theme?.colors.actionPrimary
+
+        let pasteControl = UIPasteControl(configuration: pasteControlConfig)
+        pasteControl.target = pasteControlTarget
+        pasteControl.translatesAutoresizingMaskIntoConstraints = false
+        pasteControl.layer.borderWidth = UX.buttonBorderWidth
+        pasteControl.layer.cornerRadius = UX.buttonBorderRadius
+
+        return pasteControl
+    }()
+
+    init(viewModel: ButtonToastViewModel, theme: Theme?, target: UIViewController?) {
+        self.theme = theme
+        self.pasteControlTarget = target
+        super.init(viewModel: viewModel, theme: theme)
+    }
+
+    required init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func setupPaddedButton(stackView: UIStackView, buttonText: String?) {
+        stackView.addArrangedSubview(pasteControl)
+        pasteControl.setContentCompressionResistancePriority(.required, for: .horizontal)
+    }
+
+    override func applyTheme(theme: Theme) {
+        super.applyTheme(theme: theme)
+        pasteControl.layer.borderColor = theme.colors.borderInverted.cgColor
     }
 }

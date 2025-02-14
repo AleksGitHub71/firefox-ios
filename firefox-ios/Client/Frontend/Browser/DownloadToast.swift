@@ -12,12 +12,14 @@ class DownloadToast: Toast {
     }
 
     lazy var progressView: UIView = .build { view in
+        view.layer.cornerRadius = Toast.UX.toastCornerRadius
     }
 
-    private var horizontalStackView: UIStackView = .build { stackView in
+    private var contentStackView: UIStackView = .build { stackView in
+        stackView.spacing = ButtonToast.UX.stackViewSpacing
         stackView.axis = .horizontal
         stackView.alignment = .center
-        stackView.spacing = ButtonToast.UX.padding
+        stackView.distribution = .fill
     }
 
     private var imageView: UIImageView = .build { imageView in
@@ -31,12 +33,12 @@ class DownloadToast: Toast {
     }
 
     private var titleLabel: UILabel = .build { label in
-        label.font = FXFontStyles.Bold.subheadline.scaledFont()
+        label.font = FXFontStyles.Regular.subheadline.scaledFont()
         label.numberOfLines = 0
     }
 
     private var descriptionLabel: UILabel = .build { label in
-        label.font = FXFontStyles.Bold.footnote.scaledFont()
+        label.font = FXFontStyles.Regular.footnote.scaledFont()
         label.numberOfLines = 0
     }
 
@@ -49,11 +51,26 @@ class DownloadToast: Toast {
 
     var downloads: [Download] = []
 
-    var percent: CGFloat = 0.0 {
+    // Returns true if one or more downloads have encoded data (indicated via response `Content-Encoding` header).
+    // If at least one download has encoded data, we cannot get a correct total estimate for all the downloads.
+    // In that case, we do not show descriptive text. This will be improved in a later rework of the download manager.
+    // FXIOS-9039
+    var hasContentEncoding: Bool {
+        return downloads.contains(where: { $0.hasContentEncoding ?? false })
+    }
+
+    var percent: CGFloat? = 0.0 {
         didSet {
             UIView.animate(withDuration: 0.05) {
                 self.descriptionLabel.text = self.descriptionText
-                self.progressWidthConstraint?.constant = self.toastView.frame.width * self.percent
+
+                if let percent = self.percent {
+                    self.progressView.isHidden = false
+                    self.progressWidthConstraint?.constant = self.toastView.frame.width * percent
+                } else {
+                    self.progressView.isHidden = true
+                }
+
                 self.layoutIfNeeded()
             }
         }
@@ -72,6 +89,11 @@ class DownloadToast: Toast {
     }
 
     var descriptionText: String {
+        guard !hasContentEncoding else {
+            // We cannot get a correct estimate of encoded downloaded bytes (FXIOS-9039)
+            return String()
+        }
+
         let downloadedSize = ByteCountFormatter.string(
             fromByteCount: combinedBytesDownloaded,
             countStyle: .file
@@ -114,14 +136,15 @@ class DownloadToast: Toast {
         self.addSubview(createView(download.filename, descriptionText: self.descriptionText))
 
         NSLayoutConstraint.activate([
-            toastView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            toastView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            toastView.heightAnchor.constraint(equalTo: heightAnchor),
+            toastView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Toast.UX.shadowVerticalSpacing),
+            toastView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Toast.UX.shadowVerticalSpacing),
+            toastView.heightAnchor.constraint(equalTo: heightAnchor, constant: -Toast.UX.shadowHorizontalSpacing),
 
-            heightAnchor.constraint(equalToConstant: Toast.UX.toastHeight)
+            heightAnchor.constraint(greaterThanOrEqualToConstant: Toast.UX.toastHeightWithShadow)
         ])
 
-        animationConstraint = toastView.topAnchor.constraint(equalTo: topAnchor, constant: Toast.UX.toastHeight)
+        animationConstraint = toastView.topAnchor.constraint(greaterThanOrEqualTo: topAnchor,
+                                                             constant: Toast.UX.toastHeightWithShadow)
         animationConstraint?.isActive = true
         applyTheme(theme: theme)
     }
@@ -144,6 +167,12 @@ class DownloadToast: Toast {
 
     func updatePercent() {
         DispatchQueue.main.async {
+            guard !self.hasContentEncoding else {
+                // We cannot get a correct estimate of encoded downloaded bytes (FXIOS-9039)
+                self.percent = nil
+                return
+            }
+
             guard let combinedTotalBytesExpected = self.combinedTotalBytesExpected else {
                 self.percent = 0.0
                 return
@@ -154,7 +183,7 @@ class DownloadToast: Toast {
     }
 
     func createView(_ labelText: String, descriptionText: String) -> UIView {
-        horizontalStackView.addArrangedSubview(imageView)
+        contentStackView.addArrangedSubview(imageView)
 
         titleLabel.text = labelText
         descriptionLabel.text = descriptionText
@@ -162,11 +191,11 @@ class DownloadToast: Toast {
         labelStackView.addArrangedSubview(titleLabel)
         labelStackView.addArrangedSubview(descriptionLabel)
 
-        horizontalStackView.addArrangedSubview(labelStackView)
-        horizontalStackView.addArrangedSubview(closeButton)
+        contentStackView.addArrangedSubview(labelStackView)
+        contentStackView.addArrangedSubview(closeButton)
 
         toastView.addSubview(progressView)
-        toastView.addSubview(horizontalStackView)
+        toastView.addSubview(contentStackView)
 
         NSLayoutConstraint.activate(
             [
@@ -174,17 +203,14 @@ class DownloadToast: Toast {
                 progressView.centerYAnchor.constraint(equalTo: toastView.centerYAnchor),
                 progressView.heightAnchor.constraint(equalTo: toastView.heightAnchor),
 
-                horizontalStackView.leadingAnchor.constraint(
-                    equalTo: toastView.leadingAnchor,
-                    constant: ButtonToast.UX.padding
-                ),
-                horizontalStackView.trailingAnchor.constraint(
-                    equalTo: toastView.trailingAnchor,
-                    constant: -ButtonToast.UX.padding
-                ),
-                horizontalStackView.bottomAnchor.constraint(equalTo: toastView.safeAreaLayoutGuide.bottomAnchor),
-                horizontalStackView.topAnchor.constraint(equalTo: toastView.topAnchor),
-                horizontalStackView.heightAnchor.constraint(equalToConstant: Toast.UX.toastHeight),
+                contentStackView.leadingAnchor.constraint(equalTo: toastView.leadingAnchor,
+                                                          constant: ButtonToast.UX.spacing),
+                contentStackView.trailingAnchor.constraint(equalTo: toastView.trailingAnchor,
+                                                           constant: -ButtonToast.UX.spacing),
+                contentStackView.bottomAnchor.constraint(equalTo: toastView.bottomAnchor,
+                                                         constant: -ButtonToast.UX.spacing),
+                contentStackView.topAnchor.constraint(equalTo: toastView.topAnchor,
+                                                      constant: ButtonToast.UX.spacing),
 
                 closeButton.heightAnchor.constraint(equalToConstant: UX.buttonSize),
                 closeButton.widthAnchor.constraint(equalToConstant: UX.buttonSize),
@@ -223,6 +249,21 @@ class DownloadToast: Toast {
         imageView.tintColor = theme.colors.textInverted
         closeButton.tintColor = theme.colors.textInverted
         progressView.backgroundColor = theme.colors.actionPrimaryHover
+    }
+
+    override func adjustLayoutForA11ySizeCategory() {
+        let contentSizeCategory = UIApplication.shared.preferredContentSizeCategory
+        if contentSizeCategory.isAccessibilityCategory {
+            // Description label changes with progress and if this isn't clipped the height of the
+            // toast changes continually while loading
+            descriptionLabel.numberOfLines = 1
+            descriptionLabel.lineBreakMode = .byTruncatingTail
+        } else {
+            descriptionLabel.numberOfLines = 0
+            descriptionLabel.lineBreakMode = .byWordWrapping
+        }
+
+        setNeedsLayout()
     }
 
     override func handleTap(_ gestureRecognizer: UIGestureRecognizer) {

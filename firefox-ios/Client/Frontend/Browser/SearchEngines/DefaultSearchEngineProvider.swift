@@ -10,9 +10,6 @@ protocol SearchEngineProvider {
     func getOrderedEngines(customEngines: [OpenSearchEngine],
                            orderedEngineNames: [String]?,
                            completion: @escaping ([OpenSearchEngine]) -> Void)
-    func getUnorderedBundledEnginesFor(locale: Locale,
-                                       possibleLanguageIdentifier: [String],
-                                       completion: @escaping ([OpenSearchEngine]) -> Void)
 }
 
 class DefaultSearchEngineProvider: SearchEngineProvider {
@@ -35,7 +32,6 @@ class DefaultSearchEngineProvider: SearchEngineProvider {
             // might not work to change the default.
             guard let orderedEngineNames = orderedEngineNames else {
                 // We haven't persisted the engine order, so return whatever order we got from disk.
-
                 DispatchQueue.main.async {
                     completion(unorderedEngines)
                 }
@@ -69,9 +65,9 @@ class DefaultSearchEngineProvider: SearchEngineProvider {
         })
     }
 
-    func getUnorderedBundledEnginesFor(locale: Locale,
-                                       possibleLanguageIdentifier: [String],
-                                       completion: @escaping ([OpenSearchEngine]) -> Void ) {
+    private func getUnorderedBundledEnginesFor(locale: Locale,
+                                               possibleLanguageIdentifier: [String],
+                                               completion: @escaping ([OpenSearchEngine]) -> Void ) {
         let region = locale.regionCode ?? "US"
         let parser = OpenSearchParser(pluginMode: true)
 
@@ -83,13 +79,11 @@ class DefaultSearchEngineProvider: SearchEngineProvider {
             with: pluginDirectory.appendingPathComponent("list.json")
         ) else {
             logger.log("Failed to parse List.json", level: .fatal, category: .setup)
-            // swiftlint:disable line_length
             fatalError("We are unable to populate search engines for this locale because list.json could not be parsed.")
-            // swiftlint:enable line_length
         }
-        let possibilities = possibleLanguageIdentifier
-        let engineNames = defaultSearchPrefs.visibleDefaultEngines(for: possibilities, and: region)
-        let defaultEngineName = defaultSearchPrefs.searchDefault(for: possibilities, and: region)
+
+        let engineNames = defaultSearchPrefs.visibleDefaultEngines(for: possibleLanguageIdentifier, and: region)
+        let defaultEngineName = defaultSearchPrefs.searchDefault(for: possibleLanguageIdentifier, and: region)
 
         guard !engineNames.isEmpty else {
             logger.log("No search engines.", level: .fatal, category: .setup)

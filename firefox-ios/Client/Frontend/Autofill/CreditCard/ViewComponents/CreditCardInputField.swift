@@ -7,18 +7,18 @@ import Foundation
 import SwiftUI
 import Shared
 
-enum CreditCardInputType {
+enum CreditCardInputType: String {
     case name, number, expiration
 }
 
 struct CreditCardInputField: View {
     let creditCardValidator: CreditCardValidator
     let inputType: CreditCardInputType
-    var fieldHeadline: String = ""
-    var errorString: String = ""
+    var fieldHeadline = ""
+    var errorString = ""
     var delimiterCharacter: String?
-    var userInputLimit: Int = 0
-    var formattedTextLimit: Int = 0
+    var userInputLimit = 0
+    var formattedTextLimit = 0
     var keyboardType: UIKeyboardType = .numberPad
     var showError = false
     var disableEditing: Bool {
@@ -27,7 +27,7 @@ struct CreditCardInputField: View {
     @ObservedObject var viewModel: CreditCardInputViewModel
     let inputFieldHelper: CreditCardInputFieldHelper
     @FocusState private var isFocused: Bool
-    @State var text: String = ""
+    @State var text = ""
     @State var shouldReveal = true {
         willSet(val) {
             if inputType == .number {
@@ -125,7 +125,7 @@ struct CreditCardInputField: View {
 
     func applyTheme(theme: Theme) {
         let color = theme.colors
-        errorColor = Color(color.textWarning)
+        errorColor = Color(color.textCritical)
         titleColor = Color(color.textSecondary)
         textFieldColor = Color(color.textPrimary)
         backgroundColor = Color(color.layer2)
@@ -204,7 +204,10 @@ struct CreditCardInputField: View {
             if inputType == .expiration {
                 _ = self.updateInputValidity()
             }
-        }.accessibilityLabel(fieldHeadline)
+        }
+        .accessibilityLabel(fieldHeadline)
+        .accessibilityIdentifier(inputType.rawValue)
+        .accessibility(addTraits: .isButton)
     }
 
     // MARK: Helper

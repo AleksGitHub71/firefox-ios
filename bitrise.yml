@@ -34,28 +34,16 @@ stages:
     - klar_unit_test:
         run_if: '{{getenv "BUILD_FOCUS_IOS" | eq "true"}}'
 workflows:
-  firefox_configure_build:
+  firefox_accessibility_test:
     before_run:
-    - 0_detect_standalone_build
     - 1_git_clone_and_post_clone
     - 2_certificate_and_profile
     - 3_provisioning_and_npm_installation
-    - decision_to_run_UI_Tests
     steps:
     - activate-ssh-key@4:
         run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
     - restore-spm-cache@1:
         is_always_run: true
-    - git::https://github.com/DamienBitrise/bitrise-test-plan-sharder.git@master:
-          title: Bitrise Test Plan Sharder
-          inputs:
-            - xcode_project: Client.xcodeproj
-            - target: Client
-            - shards: '4'
-            - scheme: Fennec
-            - debug_mode: 'true'
-            - test_path: ''
-            - file_type: ".swift"
     - script@1.1:
         title: Build for Testing
         inputs:
@@ -65,22 +53,55 @@ workflows:
             mkdir DerivedData
 
             xcodebuild -resolvePackageDependencies -onlyUsePackageVersionsFromResolvedFile
-            xcodebuild "-project" "/Users/vagrant/git/firefox-ios/Client.xcodeproj" "-scheme" "Fennec" -configuration "Fennec" "CODE_SIGNING_ALLOWED=NO" -sdk "iphonesimulator" "-destination" "platform=iOS Simulator,name=iPhone 15,OS=17.5" "COMPILER_INDEX_STORE_ENABLE=NO" "build-for-testing" "CODE_SIGN_IDENTITY=" "CODE_SIGNING_REQUIRED=NO" "CODE_SIGNING_ALLOWED=NO" -derivedDataPath "/Users/vagrant/git/DerivedData" | xcpretty | tee xcodebuild_fennec.log
+            xcodebuild "-project" "/Users/vagrant/git/firefox-ios/Client.xcodeproj" "-scheme" "Fennec" -configuration "Fennec_Testing" "CODE_SIGNING_ALLOWED=NO" -sdk "iphonesimulator" "-destination" "platform=iOS Simulator,name=iPhone 16,OS=18.2" "COMPILER_INDEX_STORE_ENABLE=NO" "build-for-testing" "CODE_SIGN_IDENTITY=" "CODE_SIGNING_REQUIRED=NO" "CODE_SIGNING_ALLOWED=NO" -derivedDataPath "/Users/vagrant/git/DerivedData" | xcpretty | tee xcodebuild_fennec.log
 
             ls /Users/vagrant/git/DerivedData/Build/Products
             ls /Users/vagrant/git/DerivedData
     - xcode-test-without-building@0:
+        timeout: 600
+        inputs:
+        - destination: platform=iOS Simulator,name=iPhone 16,OS=18.2
+        - xcodebuild_options: '"COMPILER_INDEX_STORE_ENABLE=NO" "CODE_SIGN_IDENTITY=" "CODE_SIGNING_REQUIRED=NO" "CODE_SIGNING_ALLOWED=NO"'
+        - xctestrun: "/Users/vagrant/git/DerivedData/Build/Products/Fennec_AccessibilityTestPlan_iphonesimulator18.2-arm64.xctestrun"
+        - maximum_test_repetitions: 2
+    
+    - deploy-to-bitrise-io@2.9.2: {}
+  firefox_configure_build:
+    before_run:
+    - 0_detect_standalone_build
+    - 1_git_clone_and_post_clone
+    - 2_certificate_and_profile
+    - 3_provisioning_and_npm_installation
+    - decision_to_run_UI_Tests
+    steps:
+    - activate-ssh-key@4.1.1:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - restore-spm-cache@2.1.1:
+        is_always_run: true
+    - script@1.2.1:
+        title: Build for Testing
+        inputs:
+        - content: |
+            set -euxo pipefail
+            echo "-- build-for-testing --"
+            mkdir DerivedData
+
+            xcodebuild -resolvePackageDependencies -onlyUsePackageVersionsFromResolvedFile
+            xcodebuild "-project" "/Users/vagrant/git/firefox-ios/Client.xcodeproj" "-scheme" "Fennec" -configuration "Fennec_Testing" "CODE_SIGNING_ALLOWED=NO" -sdk "iphonesimulator" "-destination" "platform=iOS Simulator,name=iPhone 16,OS=18.2" "COMPILER_INDEX_STORE_ENABLE=NO" "build-for-testing" "CODE_SIGN_IDENTITY=" "CODE_SIGNING_REQUIRED=NO" "CODE_SIGNING_ALLOWED=NO" -derivedDataPath "/Users/vagrant/git/DerivedData" | xcpretty | tee xcodebuild_fennec.log
+
+            ls /Users/vagrant/git/DerivedData/Build/Products
+            ls /Users/vagrant/git/DerivedData
+    - xcode-test-without-building@0.4.0:
         run_if: '{{getenv "RUN_UI_TESTS" | eq "Run_UI_Tests"}}'
         timeout: 600
         inputs:
-        - destination: platform=iOS Simulator,name=iPhone 15,OS=17.5
-        - xcodebuild_options: '"COMPILER_INDEX_STORE_ENABLE=NO"
-            "CODE_SIGN_IDENTITY=" "CODE_SIGNING_REQUIRED=NO" "CODE_SIGNING_ALLOWED=NO"'
-        - xctestrun: "/Users/vagrant/git/DerivedData/Build/Products/Fennec_UnitTest_iphonesimulator17.5-arm64.xctestrun"
+        - destination: platform=iOS Simulator,name=iPhone 16,OS=18.2
+        - xcodebuild_options: '"COMPILER_INDEX_STORE_ENABLE=NO" "CODE_SIGN_IDENTITY=" "CODE_SIGNING_REQUIRED=NO" "CODE_SIGNING_ALLOWED=NO"'
+        - xctestrun: "/Users/vagrant/git/DerivedData/Build/Products/Fennec_UnitTest_iphonesimulator18.2-arm64.xctestrun"
         - maximum_test_repetitions: 2
-    - save-spm-cache@1:
+    - save-spm-cache@1.3.1:
         is_always_run: true
-    - script@1.1:
+    - script@1.2.1:
         run_if: '{{getenv "RUN_UI_TESTS" | eq "Run_UI_Tests"}}'
         title: Compress Derived Data
         is_always_run: true
@@ -102,17 +123,18 @@ workflows:
             "$BITRISE_SOURCE_DIR/firefox-ios/firefox-ios-tests/" \
             "$BITRISE_SOURCE_DIR/firefox-ios/Client/" \
             "$BITRISE_SOURCE_DIR/xcodebuild.log"
-    - deploy-to-bitrise-io@2:
-        run_if: '{{getenv "RUN_UI_TESTS" | eq "Run_UI_Tests"}}'
+    - deploy-to-bitrise-io@2.10.0:
+        run_if: '{{getenv "RUN_UI_TESTS" | eq "Run_UI_Tests" | and (getenv "BITRISE_XCRESULT_PATH" | ne "")}}'
         inputs:
         - deploy_path: "${BITRISE_SOURCE_DIR}/DerivedData.zip"
         - pipeline_intermediate_files: |-
             $BITRISE_XCRESULT_PATH:BITRISE_XCRESULT_PATH
             ${BITRISE_SOURCE_DIR}/DerivedData.zip:DERIVED_DATA_DIR
-    - script@1.1:
+        is_always_run: true
+    - script@1.2.1:
         run_if: '{{getenv "RUN_UI_TESTS" | eq "Run_UI_Tests"}}'
         title: Run Danger 2
-        timeout: 180
+        timeout: 360
         inputs:
         - content: |
             #!/usr/bin/env bash
@@ -122,7 +144,7 @@ workflows:
             swift run danger-swift ci
     - cache-push@2.7.1:
         is_always_run: true
-    - script@1.1:
+    - script@1.2.1:
         title: Detect number of warnings
         is_always_run: true
         inputs:
@@ -132,7 +154,7 @@ workflows:
 
             echo "bitrise_xcode"
             COUNT_XCUI=$(./test-fixtures/generate-metrics.sh /Users/vagrant/git/xcodebuild_fennec.log all)
-            
+
             envman add --key SHOW_WARNING_IN_SLACK --value Show_Warnings
             envman add --key SHOW_WARNING_COUNT_XCUI --value "$COUNT_XCUI"
 
@@ -142,7 +164,7 @@ workflows:
                 echo "Failure, the number of warnings increased"
                 exit 1
             fi
-    - slack@3.1:
+    - slack@4.2.1:
         is_always_run: true
         inputs:
         - title: ''
@@ -164,7 +186,7 @@ workflows:
             App|${BITRISE_APP_URL}
             #mobile-testeng|https://mozilla.slack.com/archives/C02KDDS9QM9
             Mana|https://mana.mozilla.org/wiki/display/MTE/Mobile+Test+Engineering
-    - slack@3.1:
+    - slack@4.2.1:
         is_always_run: true
         run_if: '{{getenv "NEW_RC_VERSION" | eq "New_RC_Version" | and .IsBuildFailed}}'
         inputs:
@@ -174,35 +196,35 @@ workflows:
 
   build_and_test_1_SmokeTest1:
     envs:
-      - opts:
-          is_expand: false
-        SHARD: '1'
+    - opts:
+        is_expand: false
+      SHARD: '1'
     after_run:
-      - _build_and_test
+    - _build_and_test
 
   build_and_test_2_SmokeTest2:
     envs:
-      - opts:
-          is_expand: false
-        SHARD: '2'
+    - opts:
+        is_expand: false
+      SHARD: '2'
     after_run:
-      - _build_and_test
+    - _build_and_test
 
   build_and_test_3_SmokeTest3:
     envs:
-      - opts:
-          is_expand: false
-        SHARD: '3'
+    - opts:
+        is_expand: false
+      SHARD: '3'
     after_run:
-      - _build_and_test
+    - _build_and_test
 
   build_and_test_4_SmokeTest4:
     envs:
-      - opts:
-          is_expand: false
-        SHARD: '4'
+    - opts:
+        is_expand: false
+      SHARD: '4'
     after_run:
-      - _build_and_test
+    - _build_and_test
 
   _build_and_test:
     before_run:
@@ -211,24 +233,21 @@ workflows:
     - decision_to_run_UI_Tests
     - firefox_pull_and_unzip_dependencies
     steps:
-    - xcode-test-without-building@0:
+    - xcode-test-without-building@0.4.0:
         run_if: '{{getenv "RUN_UI_TESTS" | eq "Run_UI_Tests"}}'
         timeout: 1200
         inputs:
-        - destination: platform=iOS Simulator,name=iPhone 15,OS=17.5
-        - xcodebuild_options: '"-derivedDataPath" "/Users/vagrant/git/DerivedData"
-            "COMPILER_INDEX_STORE_ENABLE=NO" "CODE_SIGN_IDENTITY=" 
-            "CODE_SIGNING_REQUIRED=NO" "CODE_SIGNING_ALLOWED=NO"'
-        - xctestrun: "Users/vagrant/git/DerivedData/Build/Products/Fennec_Smoketest${SHARD}_iphonesimulator17.5-arm64.xctestrun"
-    - deploy-to-bitrise-io@2.1.1:
+        - destination: platform=iOS Simulator,name=iPhone 16,OS=18.2
+        - xcodebuild_options: '"-derivedDataPath" "/Users/vagrant/git/DerivedData" "COMPILER_INDEX_STORE_ENABLE=NO" "CODE_SIGN_IDENTITY=" "CODE_SIGNING_REQUIRED=NO" "CODE_SIGNING_ALLOWED=NO"'
+        - xctestrun: "Users/vagrant/git/DerivedData/Build/Products/Fennec_Smoketest${SHARD}_iphonesimulator18.2-arm64.xctestrun"
+    - deploy-to-bitrise-io@2.10.0:
         run_if: '{{getenv "RUN_UI_TESTS" | eq "Run_UI_Tests"}}'
         inputs:
         - pipeline_intermediate_files: '$BITRISE_XCRESULT_PATH:BITRISE_UITESTS_${SHARD}_XCRESULT_PATH'
-  
   determine_apps_affected:
     steps:
     - git-clone@6.2: {}
-    - script@1:
+    - script@1.2.1:
         title: Determine which application to base configuration
         inputs:
         - content: |-
@@ -337,14 +356,14 @@ workflows:
             envman add --key BUILD_FIREFOX_IOS --value "$BUILD_FIREFOX_IOS"
             envman add --key BUILD_FOCUS_IOS --value "$BUILD_FOCUS_IOS"
             envman add --key BUILD_SAMPLE_BROWSER_IOS --value "$BUILD_SAMPLE_BROWSER_IOS"
-    - share-pipeline-variable@1:
+    - share-pipeline-variable@1.1.1:
         title: Share which application(s) to base configuration off of
         inputs:
         - variables: |-
             BUILD_FIREFOX_IOS
             BUILD_FOCUS_IOS
             BUILD_SAMPLE_BROWSER_IOS
-    - script@1:
+    - script@1.2.1:
         title: Echo applications set
         inputs:
         - content: |-
@@ -357,12 +376,12 @@ workflows:
 
   firefox_pull_and_unzip_dependencies:
     steps:
-    - pull-intermediate-files@1:
+    - pull-intermediate-files@1.2.1:
         run_if: '{{getenv "RUN_UI_TESTS" | eq "Run_UI_Tests"}}'
         inputs:
         - verbose: true
         - artifact_sources: build_applications.firefox_configure_build
-    - script@1.1:
+    - script@1.2.1:
         run_if: '{{getenv "RUN_UI_TESTS" | eq "Run_UI_Tests"}}'
         title: Unzip
         inputs:
@@ -377,7 +396,7 @@ workflows:
             ls
   send_slack_notification:
     steps:
-    - slack@3.1:
+    - slack@4.2.1:
         inputs:
         - title: ''
         - author_name: ''
@@ -401,7 +420,7 @@ workflows:
             Mana|https://mana.mozilla.org/wiki/display/MTE/Mobile+Test+Engineering
   0_detect_standalone_build:
     steps:
-    - script@1:
+    - script@1.2.1:
         inputs:
         - content: |-
             #!/usr/bin/env bash
@@ -433,10 +452,10 @@ workflows:
         title: Detect standalone build
   1_git_clone_and_post_clone:
     steps:
-    - activate-ssh-key@4:
+    - activate-ssh-key@4.1.1:
         run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
     - git-clone@6.2: {}
-    - script@1.1:
+    - script@1.2.1:
         inputs:
         - content: |-
             #!/usr/bin/env bash
@@ -450,7 +469,7 @@ workflows:
                 envman add --key NEW_RC_VERSION --value New_RC_Version
             fi
         title: Save Branch Name
-    - script@1:
+    - script@1.2.1:
         title: Add default web browser entitlement for Fennec
         inputs:
         - content: |-
@@ -460,21 +479,21 @@ workflows:
             echo "Adding com.apple.developer.web-browser to entitlements"
 
             /usr/libexec/PlistBuddy -c "Add :com.apple.developer.web-browser bool true" firefox-ios/Client/Entitlements/FennecApplication.entitlements
-    - cache-pull@2.1: {}
+    - cache-pull@2.7.2: {}
   2_certificate_and_profile:
     steps:
-    - certificate-and-profile-installer@1: {}
-    - script@1:
+    - certificate-and-profile-installer@1.11.4: {}
+    - script@1.2.1:
         inputs:
         - content: |-
-             #!/usr/bin/env bash
-             set -e
-             set -x
-             cd firefox-ios/Client.xcodeproj
-             sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer"/CODE_SIGN_IDENTITY = "iPhone Developer"/' project.pbxproj
-             cd -
+            #!/usr/bin/env bash
+            set -e
+            set -x
+            cd firefox-ios/Client.xcodeproj
+            sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer"/CODE_SIGN_IDENTITY = "iPhone Developer"/' project.pbxproj
+            cd -
         title: Set xcodeproj code_sign_identity to iPhone Developer
-    - script@1:
+    - script@1.2.1:
         inputs:
         - content: |-
             #!/usr/bin/env bash
@@ -509,16 +528,17 @@ workflows:
     #        brew upgrade swiftlint
     #        echo "Swiftlint version after mirror swap"
     #        swiftlint version
-    - script@1:
+    - script@1.2.1:
         inputs:
         - content: |-
             ./bootstrap.sh
         title: Run bootstrap
-    - swiftlint-extended@1:
+    - swiftlint-extended@1.0.0:
         inputs:
         - linting_path: "$BITRISE_SOURCE_DIR"
-    - deploy-to-bitrise-io@2.2: {}
-    - script@1:
+        - lint_config_file: ""  # Don't pass a config file to make use of nested configurations
+    - deploy-to-bitrise-io@2.10.0: {}
+    - script@1.2.1:
         inputs:
         - content: |-
             set -e
@@ -529,7 +549,7 @@ workflows:
                 exit 1
             fi
         title: Fail build if swiftlint fails
-    - script@1:
+    - script@1.2.1:
         inputs:
         - content: |-
             #!/usr/bin/env bash
@@ -541,7 +561,7 @@ workflows:
         title: Remove carthage lipo workaround
   3_provisioning_and_npm_installation:
     steps:
-    - script@1.1:
+    - script@1.2.1:
         title: NPM install and build
         inputs:
         - content: |-
@@ -554,7 +574,7 @@ workflows:
             npm run build
   Detect_warnings:
     steps:
-    - script@1.1:
+    - script@1.2.1:
         title: Detect number of warnings
         inputs:
         - content: |-
@@ -580,7 +600,7 @@ workflows:
         is_always_run: true
   decision_to_run_UI_Tests:
     steps:
-    - script@1:
+    - script@1.2.1:
         title: Files changed in commit
         inputs:
         - content: |-
@@ -609,7 +629,7 @@ workflows:
                 envman add --key RUN_UI_TESTS --value Run_UI_Tests
                 exit 0
             fi
-            
+
             # Match on file names in all directories and subdirectories
             #
             # Project Configs
@@ -639,12 +659,12 @@ workflows:
             else
                 echo "Not Running UI Tests"
             fi
-    - share-pipeline-variable@1:
+    - share-pipeline-variable@1.1.1:
         inputs:
         - variables: RUN_UI_TESTS
   NewXcodeVersions:
     steps:
-    - script@1:
+    - script@1.2.1:
         inputs:
         - content: |-
             #!/usr/bin/env bash
@@ -674,12 +694,12 @@ workflows:
             fi
 
         title: Check main branch for recent activity before continuing
-    - activate-ssh-key@4.0:
+    - activate-ssh-key@4.1.1:
         run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
     - git-clone@6.2: {}
-    - cache-pull@2.4: {}
-    - certificate-and-profile-installer@1: {}
-    - script@1:
+    - cache-pull@2.7.2: {}
+    - certificate-and-profile-installer@1.11.4: {}
+    - script@1.2.1:
         run_if: '{{getenv "NEW_XCODE_VERSION" | eq "New_Version_Found" | or (getenv "RUN_ALL_STEPS" | eq "Run_All_Steps")}}'
         inputs:
         - content: |-
@@ -695,13 +715,13 @@ workflows:
             export XCODE_XCCONFIG_FILE=/tmp/tmp.xcconfig
             envman add --key XCODE_XCCONFIG_FILE --value /tmp/tmp.xcconfig
         title: Workaround carthage lipo bug
-    - script@1:
+    - script@1.2.1:
         run_if: '{{getenv "NEW_XCODE_VERSION" | eq "New_Version_Found" | or (getenv "RUN_ALL_STEPS" | eq "Run_All_Steps")}}'
         inputs:
         - content: |-
             ./bootstrap.sh
         title: Run bootstrap
-    - script@1:
+    - script@1.2.1:
         run_if: '{{getenv "NEW_XCODE_VERSION" | eq "New_Version_Found" | or (getenv "RUN_ALL_STEPS" | eq "Run_All_Steps")}}'
         inputs:
         - content: |-
@@ -712,7 +732,7 @@ workflows:
             rm /tmp/tmp.xcconfig
             envman add --key XCODE_XCCONFIG_FILE --value ''
         title: Remove carthage lipo workaround
-    - script@1:
+    - script@1.2.1:
         run_if: '{{getenv "NEW_XCODE_VERSION" | eq "New_Version_Found" | or (getenv "RUN_ALL_STEPS" | eq "Run_All_Steps")}}'
         inputs:
         - content: |-
@@ -729,7 +749,7 @@ workflows:
             sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer"/CODE_SIGN_IDENTITY = "iPhone Distribution"/' project.pbxproj
             cd -
         title: Set provisioning to Bitrise in xcodeproj
-    - script@1.1:
+    - script@1.2.1:
         run_if: '{{getenv "NEW_XCODE_VERSION" | eq "New_Version_Found" | or (getenv "RUN_ALL_STEPS" | eq "Run_All_Steps")}}'
         title: NPM install and build
         inputs:
@@ -741,20 +761,20 @@ workflows:
 
             npm install
             npm run build
-    - xcode-build-for-simulator@0.12:
+    - xcode-build-for-simulator@3.0.0:
         run_if: '{{getenv "NEW_XCODE_VERSION" | eq "New_Version_Found" | or (getenv "RUN_ALL_STEPS" | eq "Run_All_Steps")}}'
         inputs:
         - xcodebuild_options: CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
         - scheme: Fennec
-        - simulator_device: iPhone 15
-    - xcode-test@4.5:
+        - simulator_device: iPhone 16
+    - xcode-test@6.0.0:
         run_if: '{{getenv "NEW_XCODE_VERSION" | eq "New_Version_Found" | or (getenv "RUN_ALL_STEPS" | eq "Run_All_Steps")}}'
         inputs:
         - scheme: Fennec
-        - destination: platform=iOS Simulator,name=iPhone 15,OS=17.5
-    - deploy-to-bitrise-io@2.2: {}
-    - cache-push@2.4: {}
-    - slack@3.1:
+        - destination: platform=iOS Simulator,name=iPhone 16,OS=18.2
+    - deploy-to-bitrise-io@2.10.0: {}
+    - cache-push@2.7.1: {}
+    - slack@4.2.1:
         run_if: '{{getenv "NEW_XCODE_VERSION" | eq "New_Version_Found" | or (getenv "RUN_ALL_STEPS" | eq "Run_All_Steps")}}'
         inputs:
         - channel: "#firefox-ios"
@@ -762,14 +782,18 @@ workflows:
         - message: "The build run info: $BITRISE_GIT_MESSAGE"
         - webhook_url: "$WEBHOOK_SLACK_TOKEN"
     description: This Workflow is to build the app using latest xcode available in Bitrise
+    meta:
+      bitrise.io:
+        stack: osx-xcode-16.2.x-edge
+        machine_type_id: g2-m1.8core
   L10nBuild:
     steps:
-    - activate-ssh-key@4:
+    - activate-ssh-key@4.1.1:
         run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
     - git-clone@6.2: {}
-    - cache-pull@2.1: {}
-    - certificate-and-profile-installer@1: {}
-    - script@1:
+    - cache-pull@2.7.2: {}
+    - certificate-and-profile-installer@1.11.4: {}
+    - script@1.2.1:
         inputs:
         - content: >-
             #!/usr/bin/env bash
@@ -796,12 +820,12 @@ workflows:
 
             envman add --key XCODE_XCCONFIG_FILE --value /tmp/tmp.xcconfig
         title: Workaround carthage lipo
-    - script@1:
+    - script@1.2.1:
         inputs:
         - content: |-
             ./bootstrap.sh
         title: Run bootstrap
-    - script@1:
+    - script@1.2.1:
         inputs:
         - content: |-
             #!/usr/bin/env bash
@@ -811,7 +835,7 @@ workflows:
             rm /tmp/tmp.xcconfig
             envman add --key XCODE_XCCONFIG_FILE --value ''
         title: Remove carthage lip
-    - script@1.1:
+    - script@1.2.1:
         title: NPM install and build
         inputs:
         - content: |-
@@ -823,7 +847,7 @@ workflows:
 
             npm install
             npm run build
-    - script@1.1:
+    - script@1.2.1:
         inputs:
         - content: |-
             #!/usr/bin/env bash
@@ -831,55 +855,46 @@ workflows:
             set -e
             # debug log
             set -x
-            gem install fastlane -v 2.219.0
+            gem install fastlane -v 2.226.0
             fastlane -version
+            xcodebuild -version
 
             ./firefox-ios/l10n-screenshots.sh en-US
         title: Generate screenshots
-    - deploy-to-bitrise-io@1.10:
+    - save-cache@1.4.0:
         inputs:
-        - deploy_path: l10n-screenshots-dd/
-        - is_compress: 'true'
-    - deploy-to-bitrise-io@1.10:
+        - key: l10n-screenshots-dd-$GIT_CLONE_COMMIT_HASH
+        - paths: l10n-screenshots-dd
+    - deploy-to-bitrise-io@2.10.0:
         inputs:
         - deploy_path: l10n-screenshots/en-US/en-US
         - is_compress: 'true'
-    - cache-push@2.3: {}
+    - cache-push@2.7.1: {}
     envs:
     - opts:
         is_expand: false
       BITRISE_SCHEME: L10nSnapshotTest
     description: >-
-      This Workflow is to run L10n tests in one locale and then share the bundle with the rest of the builds
+      This Workflow is to run L10n tests in one locale and then share the bundle with
+      the rest of the builds
+    meta:
+      bitrise.io:
+        stack: osx-xcode-16.2.x-edge
+        machine_type_id: g2-m1.8core
   L10nScreenshotsTests:
     steps:
-    - activate-ssh-key@4:
+    - activate-ssh-key@4.1.1:
         run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
     - git-clone@6.2: {}
-    - certificate-and-profile-installer@1: {}
-    - script@1:
+    - certificate-and-profile-installer@1.11.4: {}
+    - restore-cache@2.5.0:
         inputs:
-        - content: >-
-            #!/usr/bin/env bash
-
-            # fail if any commands fails
-
-            set -e
-
-            # debug log
-
-            set -x
-
-            curl --location --retry 5 --output l10n-screenshots-dd.zip
-            "$MOZ_DERIVED_DATA_PATH"
-
-            mkdir l10n-screenshots-dd
-
-            unzip l10n-screenshots-dd.zip -d l10n-screenshots-dd
-
-            rm l10n-screenshots-dd.zip
+        - key: |-
+            l10n-screenshots-dd-$GIT_CLONE_COMMIT_HASH
+            l10n-screenshots-dd-
+        - paths: l10n-screenshots-dd
         title: Download derived data path
-    - script@1.1:
+    - script@1.2.1:
         inputs:
         - content: |-
             #!/usr/bin/env bash
@@ -887,7 +902,7 @@ workflows:
             set -e
             # debug log
             set -x
-            gem install fastlane -v 2.219.0
+            gem install fastlane -v 2.226.0
             fastlane -version
             ./firefox-ios/l10n-screenshots.sh --test-without-building $MOZ_LOCALES
 
@@ -898,7 +913,7 @@ workflows:
               mv "$locale.zip" artifacts/
             done
         title: Generate screenshots
-    - deploy-to-bitrise-io@1.10:
+    - deploy-to-bitrise-io@2.10.0:
         inputs:
         - deploy_path: artifacts/
     envs:
@@ -907,13 +922,17 @@ workflows:
       BITRISE_SCHEME: L10nSnapshotTest
     description: >-
       This Workflow is to run L10n tests for all locales
+    meta:
+      bitrise.io:
+        stack: osx-xcode-16.2.x-edge
+        machine_type_id: g2-m1.8core
   SPM_Deploy_Prod_Beta:
     steps:
     - activate-ssh-key@4.1:
         run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
     - git-clone@6.2: {}
     - certificate-and-profile-installer@1: {}
-    - script@1:
+    - script@1.2.1:
         inputs:
         - content: |-
             #!/usr/bin/env bash
@@ -924,7 +943,7 @@ workflows:
             sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer"/CODE_SIGN_IDENTITY = "iPhone Distribution"/' project.pbxproj
             cd -
         title: Set xcodeproj code_sign_identity
-    - script@1.1:
+    - script@1.2.1:
         title: NPM, ContentBlockerGen
         inputs:
         - content: |-
@@ -955,7 +974,7 @@ workflows:
         inputs:
         - build_short_version_string: "$BITRISE_RELEASE_VERSION"
         - plist_path: firefox-ios/CredentialProvider/Info.plist
-    - script@1:
+    - script@1.2.1:
         inputs:
         - content: |-
             #!/usr/bin/env bash
@@ -980,14 +999,14 @@ workflows:
         - distribution_method: app-store
         - export_development_team: 43AQ936H96
         - configuration: "$BITRISE_SCHEME"
-    - deploy-to-bitrise-io@2.0: {}
+    - deploy-to-bitrise-io@2.9.2: {}
     - deploy-to-itunesconnect-application-loader@1.3:
         inputs:
         - app_password: "$APPLE_ACCOUNT_PW"
         - password: "$APPLE_ACCOUNT_PW"
         - connection: 'off'
         - itunescon_user: "$APPLE_ACCOUNT_ID"
-    - script@1:
+    - script@1.2.1:
         title: Upload Firefox Prod Beta Symbols
         inputs:
         - content: |-
@@ -995,7 +1014,7 @@ workflows:
             set -x
             firefox-ios/ThirdParty/sentry-cli --auth-token "$SENTRY_AUTH_TOKEN_FIREFOX" upload-dif \
               --org mozilla --project firefox-ios "$BITRISE_DSYM_DIR_PATH"
-    - script@1:
+    - script@1.2.1:
         inputs:
         - content: |-
             #!/usr/bin/env bash
@@ -1033,11 +1052,11 @@ workflows:
     description: This step is to build, archive and upload Firefox Release and Beta
   SPM_Deploy_Beta_Only:
     steps:
-    - activate-ssh-key@4.1:
+    - activate-ssh-key@4.1.1:
         run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
     - git-clone@6.2: {}
-    - certificate-and-profile-installer@1: {}
-    - script@1:
+    - certificate-and-profile-installer@1.11.4: {}
+    - script@1.2.1:
         inputs:
         - content: |-
             #!/usr/bin/env bash
@@ -1048,7 +1067,7 @@ workflows:
             sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer"/CODE_SIGN_IDENTITY = "iPhone Distribution"/' project.pbxproj
             cd -
         title: Set xcodeproj code_sign_identity
-    - script@1.1:
+    - script@1.2.1:
         title: NPM, ContentBlockerGen
         inputs:
         - content: |-
@@ -1077,7 +1096,7 @@ workflows:
         inputs:
         - build_short_version_string: "$BITRISE_BETA_VERSION"
         - plist_path: firefox-ios/CredentialProvider/Info.plist
-    - script@1:
+    - script@1.2.1:
         inputs:
         - content: |-
             #!/usr/bin/env bash
@@ -1109,7 +1128,7 @@ workflows:
         - connection: 'off'
         - itunescon_user: "$APPLE_ACCOUNT_ID"
         title: 'FirefoxBeta: Xcode Archive & Export for iOS'
-    - script@1:
+    - script@1.2.1:
         title: Upload Firefox Beta Symbols
         inputs:
         - content: |-
@@ -1124,11 +1143,11 @@ workflows:
     description: This step is to build, archive and upload Firefox Release and Beta
   SPM_Nightly_Beta_Only:
     steps:
-    - activate-ssh-key@4.1:
+    - activate-ssh-key@4.1.1:
         run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
     - git-clone@6.2: {}
-    - certificate-and-profile-installer@1: {}
-    - script@1:
+    - certificate-and-profile-installer@1.11.4: {}
+    - script@1.2.1:
         inputs:
         - content: |-
             #!/usr/bin/env bash
@@ -1139,7 +1158,7 @@ workflows:
             sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer"/CODE_SIGN_IDENTITY = "iPhone Distribution"/' project.pbxproj
             cd -
         title: Set xcodeproj code_sign_identity
-    - script@1.1:
+    - script@1.2.1:
         title: NPM, ContentBlockerGen
         inputs:
         - content: |-
@@ -1170,7 +1189,7 @@ workflows:
         inputs:
         - build_short_version_string: "$BITRISE_NIGHTLY_VERSION"
         - plist_path: firefox-ios/CredentialProvider/Info.plist
-    - script@1:
+    - script@1.2.1:
         inputs:
         - content: |-
             #!/usr/bin/env bash
@@ -1197,14 +1216,14 @@ workflows:
         - distribution_method: app-store
         - configuration: FirefoxBeta
         title: 'FirefoxBeta: Xcode Archive & Export for iOS'
-    - deploy-to-bitrise-io@2: {}
+    - deploy-to-bitrise-io@2.9.2: {}
     - deploy-to-itunesconnect-application-loader@1.3:
         inputs:
         - app_password: "$APPLE_ACCOUNT_PW"
         - connection: 'off'
         - itunescon_user: "$APPLE_ACCOUNT_ID"
         title: 'Nightly FirefoxBeta: Xcode Archive & Export for iOS'
-    - script@1:
+    - script@1.2.1:
         title: Upload NightlyBeta Symbols
         inputs:
         - content: |-
@@ -1220,15 +1239,15 @@ workflows:
 
   Bitrise_Performance_Test:
     steps:
-    - cache-pull@2.1:
+    - cache-pull@2.7.2:
         is_always_run: true
-    - xcode-test@4.5:
+    - xcode-test@6.0.0:
         inputs:
         - project_path: firefox-ios/Client.xcodeproj
         - scheme: Fennec
-        - destination: platform=iOS Simulator,name=iPhone 15,OS=17.5
-        - test_plan: PerformanceTestPlan   
-    - script@1.1:
+        - destination: platform=iOS Simulator,name=iPhone 16,OS=18.2
+        - test_plan: PerformanceTestPlan
+    - script@1.2.1:
         is_always_run: true
         title: Create perfherder data object
         inputs:
@@ -1239,8 +1258,8 @@ workflows:
             # debug log
             set -x
             # get dependency
-            cd ./test-fixtures && git clone https://github.com/isabelrios/xcresult_extract.git
-            
+            cd ./test-fixtures && git clone https://github.com/clarmso/xcresult_extract.git
+
             echo $BITRISE_XCRESULT_PATH
             ls
             ls $BITRISE_XCRESULT_PATH
@@ -1253,14 +1272,14 @@ workflows:
 
             ls /Users/vagrant/Library/Developer/Xcode/DerivedData/$CLIENT_PATH/Logs/Test
 
-            xcrun xcresulttool graph --path $BITRISE_XCRESULT_PATH
+            xcrun xcresulttool graph --path $BITRISE_XCRESULT_PATH --legacy
             ls ..
             python3 xcresult_extract/xcresult_extract.py -project ../Client.xcodeproj -scheme Fennec
             cat data.txt
             sed 's/.*=//;s/'\''/"/g' data.txt > test.json
             cat test.json
             python3 perfTestTransform.py
-    - deploy-to-bitrise-io@1.9: {}
+    - deploy-to-bitrise-io@2.10.0: {}
     before_run:
     - 1_git_clone_and_post_clone
     - 2_certificate_and_profile
@@ -1271,7 +1290,7 @@ workflows:
     - 2_certificate_and_profile
     - 3_provisioning_and_npm_installation
     steps:
-    - xcode-archive@4.7.2:
+    - xcode-archive@5.4.0:
         inputs:
         - project_path: firefox-ios/Client.xcodeproj
         - compile_bitcode: 'no'
@@ -1283,11 +1302,11 @@ workflows:
         - output_tool: xcodebuild
         - scheme: Fennec_Enterprise
         - configuration: Fennec_Enterprise
-    - deploy-to-bitrise-io@2: {}
+    - deploy-to-bitrise-io@2.10.0: {}
     - cache-pull@2.7.2:
         inputs:
         - cache_paths: "$HOME/sdk/google-cloud-sdk"
-    - script@1:
+    - script@1.2.1:
         title: Install Google Cloud SDK
         inputs:
         - content: |-
@@ -1308,7 +1327,7 @@ workflows:
         - cache_paths: "$HOME/sdk/google-cloud-sdk"
         - ignore_check_on_paths: "!/Users/vagrant/Library/Developer/Xcode/DerivedData/**"
         - compress_archive: "true"
-    - script@1:
+    - script@1.2.1:
         title: Firebase Test Lab Execution
         inputs:
         - content: |-
@@ -1329,7 +1348,7 @@ workflows:
                 --no-record-video \
                 --client-details=matrixLabel="Bitrise" \
                 --quiet 2>&1)
-            
+
             GCLOUD_EXITCODE=$? # this will get the right-most command from the gcloud subshell
             echo "GCLOUD_EXITCODE: $GCLOUD_EXITCODE"
 
@@ -1343,7 +1362,7 @@ workflows:
             envman add --key GCLOUD_EXIT_CODE --value "$GCLOUD_EXITCODE"
             MATRIX_WEBLINK=$(echo "$GCLOUD_OUTPUT" | grep 'https://console.firebase.google.com/project' | awk -F '[][]' '{print $2}' | head -n 1)
             envman add --key MATRIX_WEBLINK --value "$MATRIX_WEBLINK"
-    - script@1:
+    - script@1.2.1:
         title: Modify Slack Message Based on GCLOUD_EXIT_CODE
         inputs:
         - content: |-
@@ -1355,7 +1374,7 @@ workflows:
                 SLACK_MESSAGE_PRETEXT="*Firefox-iOS* :firefox: *Archive/Robo Test* :white_check_mark:"
             fi
             envman add --key SLACK_MESSAGE_PRETEXT --value "$SLACK_MESSAGE_PRETEXT"
-    - slack@3.5.0:
+    - slack@4.2.1:
         is_always_run: true
         inputs:
         - title: ''
@@ -1382,7 +1401,7 @@ workflows:
     - 2_certificate_and_profile
     - 3_provisioning_and_npm_installation
     steps:
-    - xcode-archive@4.7.2:
+    - xcode-archive@5.4.0:
         inputs:
         - project_path: firefox-ios/Client.xcodeproj
         - compile_bitcode: 'no'
@@ -1394,8 +1413,8 @@ workflows:
         - output_tool: xcodebuild
         - scheme: Fennec_Enterprise
         - configuration: Fennec_Enterprise
-    - deploy-to-bitrise-io@2: {}
-    - script@1.1:
+    - deploy-to-bitrise-io@2.10.0: {}
+    - script@1.2.1:
         title: Firebase Build for Testing Physical Devices
         inputs:
         - content: |
@@ -1447,7 +1466,7 @@ workflows:
                 xcodebuild -showsdks | grep -E 'iphoneos|iphonesimulator'
                 exit 1
             fi
-    - script@1.1:
+    - script@1.2.1:
         title: Create .zip artifact for Firebase Testing
         inputs:
         - content: |
@@ -1467,7 +1486,7 @@ workflows:
     - cache-pull@2.7.2:
         inputs:
         - cache_paths: "$HOME/google-cloud-sdk"
-    - script@1:
+    - script@1.2.1:
         title: Install Google Cloud SDK
         inputs:
         - content: |-
@@ -1482,12 +1501,19 @@ workflows:
               bash install.sh --disable-prompts
               source $HOME/google-cloud-sdk/path.bash.inc
             fi
+    - script@1.2.1:
+        title: Pin Python version
+        inputs:
+        - content: |-
+            brew unlink python@3.12
+            brew unlink python@3.11
+            brew link --force python@3.11
     - cache-push@2.7.1:
         inputs:
         - cache_paths: "$HOME/google-cloud-sdk"
         - ignore_check_on_paths: "!/Users/vagrant/Library/Developer/Xcode/DerivedData/**"
         - compress_archive: "true"
-    - script@1:
+    - script@1.2.1:
         title: Run Performance Tests in Firebase Test Lab
         inputs:
         - content: |-
@@ -1517,7 +1543,7 @@ workflows:
 
             FIREBASE_XCRESULT_PATH=$("${HOME}/google-cloud-sdk/bin/gsutil" ls "$XCRESULT_PATH" | grep ".xcresult")
             envman add --key FIREBASE_XCRESULT_PATH --value "$FIREBASE_XCRESULT_PATH"
-    - script@1.1:
+    - script@1.2.1:
         is_always_run: true
         title: Create Perfherder Data Object from Firebase
         inputs:
@@ -1588,11 +1614,11 @@ workflows:
     before_run:
     - focus-clone-and-build-dependencies
     steps:
-    - cache-pull@2: {}
+    - cache-pull@2.7.2: {}
     #- swiftlint-extended@1:
     #    inputs:
     #    - linting_path: "$BITRISE_SOURCE_DIR"
-    - script@1:
+    - script@1.2.1:
         title: Set Default Web Browser Entitlement
         inputs:
         - content: |-
@@ -1600,7 +1626,7 @@ workflows:
             set -x
             /usr/libexec/PlistBuddy -c "Add :com.apple.developer.web-browser bool true" Focus.entitlements
             /usr/libexec/PlistBuddy -c "Add :com.apple.developer.web-browser bool true" Klar.entitlements
-    - script@1.1:
+    - script@1.2.1:
         title: Build for Testing Focus
         inputs:
         - content: |
@@ -1608,15 +1634,15 @@ workflows:
             echo "-- build-for-testing --"
             mkdir DerivedData
             #xcodebuild -resolvePackageDependencies -onlyUsePackageVersionsFromResolvedFile
-            xcodebuild "-project" "/Users/vagrant/git/focus-ios/Blockzilla.xcodeproj" "-scheme" "Focus" -configuration "FocusDebug" "CODE_SIGNING_ALLOWED=NO" "-destination" "platform=iOS Simulator,name=iPhone 15,OS=17.5" "COMPILER_INDEX_STORE_ENABLE=NO" "build-for-testing" "CODE_SIGN_IDENTITY=" "CODE_SIGNING_REQUIRED=NO" "CODE_SIGNING_ALLOWED=NO" -derivedDataPath "/Users/vagrant/git/DerivedData" | xcpretty | tee xcodebuild_test.log
-    - script@1.1:
+            xcodebuild "-project" "/Users/vagrant/git/focus-ios/Blockzilla.xcodeproj" "-scheme" "Focus" -configuration "FocusDebug" "CODE_SIGNING_ALLOWED=NO" "-destination" "platform=iOS Simulator,name=iPhone 16,OS=18.2" "COMPILER_INDEX_STORE_ENABLE=NO" "build-for-testing" "CODE_SIGN_IDENTITY=" "CODE_SIGNING_REQUIRED=NO" "CODE_SIGNING_ALLOWED=NO" -derivedDataPath "/Users/vagrant/git/DerivedData" | xcpretty | tee xcodebuild_test.log
+    - script@1.2.1:
         title: Build for Testing Klar
         inputs:
         - content: |
             set -euxo pipefail
             echo "-- build-for-testing --"
-            xcodebuild "-project" "/Users/vagrant/git/focus-ios/Blockzilla.xcodeproj" "-scheme" "Klar" -configuration "KlarDebug" "CODE_SIGNING_ALLOWED=NO" "-destination" "platform=iOS Simulator,name=iPhone 15,OS=17.5" "COMPILER_INDEX_STORE_ENABLE=NO" "build-for-testing" "CODE_SIGN_IDENTITY=" "CODE_SIGNING_REQUIRED=NO" "CODE_SIGNING_ALLOWED=NO" -derivedDataPath "/Users/vagrant/git/DerivedData" | xcpretty | tee xcodebuild_test.log
-    - script@1.1:
+            xcodebuild "-project" "/Users/vagrant/git/focus-ios/Blockzilla.xcodeproj" "-scheme" "Klar" -configuration "KlarDebug" "CODE_SIGNING_ALLOWED=NO" "-destination" "platform=iOS Simulator,name=iPhone 16,OS=18.2" "COMPILER_INDEX_STORE_ENABLE=NO" "build-for-testing" "CODE_SIGN_IDENTITY=" "CODE_SIGNING_REQUIRED=NO" "CODE_SIGNING_ALLOWED=NO" -derivedDataPath "/Users/vagrant/git/DerivedData" | xcpretty | tee xcodebuild_test.log
+    - script@1.2.1:
         title: Compress Derived Data
         is_always_run: true
         inputs:
@@ -1635,23 +1661,22 @@ workflows:
             "$BITRISE_SOURCE_DIR/focus-ios/focus-ios-tests/" \
             "$BITRISE_SOURCE_DIR/focus-ios/xcodebuild.log" \
             "$BITRISE_SOURCE_DIR/focus-ios/Blockzilla/"
-    - deploy-to-bitrise-io@2:
+    - deploy-to-bitrise-io@2.10.0:
         inputs:
         - deploy_path: "${BITRISE_SOURCE_DIR}/DerivedData.zip"
         - pipeline_intermediate_files: |-
             ${BITRISE_SOURCE_DIR}/DerivedData.zip:DERIVED_DATA_DIR
-    - slack@3:
+    - slack@4.2.1:
         run_if: ".IsBuildFailed"
         inputs:
         - channel: "#mobile-alerts-ios"
         - message: "The build failed to build"
         - webhook_url: "$SLACK_WEBHOOK"
-  
   focus_ui_test:
     before_run:
     - focus-pull-and-unzip-dependencies
     steps:
-    - script@1:
+    - script@1.2.1:
         inputs:
         - content: |-
             #!/usr/bin/env bash
@@ -1671,7 +1696,7 @@ workflows:
                 envman add --key TEST_PLAN_NAME --value SmokeTest
             fi
         - title: Check if build is scheduled or regular to set the test plan
-    - script@1.1:
+    - script@1.2.1:
         title: Test without Building
         inputs:
         - content: |
@@ -1683,27 +1708,26 @@ workflows:
             mv ./Users/vagrant/git/* .
             ls -la
             echo "-- test-without-building --"
-            xcodebuild -resultBundlePath "xcodebuild.xcresult" -derivedDataPath "/Users/vagrant/git/DerivedData" -destination "platform=iOS Simulator,name=iPhone 15,OS=17.5" test-without-building -xctestrun "/Users/vagrant/git/DerivedData/Build/Products/Focus_SmokeTest_iphonesimulator17.5-arm64.xctestrun"
-    - custom-test-results-export@0:
+            xcodebuild -resultBundlePath "xcodebuild.xcresult" -derivedDataPath "/Users/vagrant/git/DerivedData" -destination "platform=iOS Simulator,name=iPhone 16,OS=18.2" test-without-building -xctestrun "/Users/vagrant/git/DerivedData/Build/Products/Focus_SmokeTest_iphonesimulator18.2-arm64.xctestrun"
+    - custom-test-results-export@1.0.0:
         inputs:
         - search_pattern: "$BITRISE_SOURCE_DIR/xcodebuild.xcresult"
         - test_name: SmokeTest
-    - deploy-to-bitrise-io@2: {}
-    - github-status@2:
+    - deploy-to-bitrise-io@2.10.0: {}
+    - github-status@3.0.1:
         inputs:
         - status_identifier: "Focus-build"
-    - slack@3:
+    - slack@4.2.1:
         run_if: ".IsBuildFailed"
         inputs:
         - channel: "#mobile-alerts-ios"
         - message: "The build run the Focus testPlan: $TEST_PLAN_NAME"
         - webhook_url: "$SLACK_WEBHOOK"
-  
   klar_unit_test:
     before_run:
     - focus-pull-and-unzip-dependencies
     steps:
-    - script@1.1:
+    - script@1.2.1:
         title: Test without Building
         inputs:
         - content: |
@@ -1714,13 +1738,13 @@ workflows:
             mv ./Users/vagrant/git/* .
             ls -la
             echo "-- test-without-building --"
-            xcodebuild -resultBundlePath "xcodebuild.xcresult" -derivedDataPath "/Users/vagrant/git/DerivedData" -destination "platform=iOS Simulator,name=iPhone 15,OS=17.5" test-without-building -xctestrun "/Users/vagrant/git/DerivedData/Build/Products/Klar_UnitTests_iphonesimulator17.5-arm64.xctestrun"
-    - custom-test-results-export@0:
+            xcodebuild -resultBundlePath "xcodebuild.xcresult" -derivedDataPath "/Users/vagrant/git/DerivedData" -destination "platform=iOS Simulator,name=iPhone 16,OS=18.2" test-without-building -xctestrun "/Users/vagrant/git/DerivedData/Build/Products/Klar_UnitTests_iphonesimulator18.2-arm64.xctestrun"
+    - custom-test-results-export@1.0.0:
         inputs:
         - search_pattern: "$BITRISE_SOURCE_DIR/xcodebuild.xcresult"
         - test_name: UnitTestsKlar
-    - deploy-to-bitrise-io@2: {}
-    - slack@3:
+    - deploy-to-bitrise-io@2.10.0: {}
+    - slack@4.2.1:
         run_if: ".IsBuildFailed"
         inputs:
         - channel: "#mobile-alerts-ios"
@@ -1731,7 +1755,7 @@ workflows:
     before_run:
     - focus-pull-and-unzip-dependencies
     steps:
-    - script@1.1:
+    - script@1.2.1:
         title: Test without Building
         inputs:
         - content: |
@@ -1742,28 +1766,28 @@ workflows:
             mv ./Users/vagrant/git/* .
             ls -la
             echo "-- test-without-building --"
-            xcodebuild -resultBundlePath "xcodebuild.xcresult" -derivedDataPath "/Users/vagrant/git/DerivedData" -destination "platform=iOS Simulator,name=iPhone 15,OS=17.5" test-without-building -xctestrun "/Users/vagrant/git/DerivedData/Build/Products/Focus_UnitTests_iphonesimulator17.5-arm64.xctestrun"
-    - custom-test-results-export@0:
+            xcodebuild -resultBundlePath "xcodebuild.xcresult" -derivedDataPath "/Users/vagrant/git/DerivedData" -destination "platform=iOS Simulator,name=iPhone 16,OS=18.2" test-without-building -xctestrun "/Users/vagrant/git/DerivedData/Build/Products/Focus_UnitTests_iphonesimulator18.2-arm64.xctestrun"
+    - custom-test-results-export@1.0.0:
         inputs:
         - search_pattern: "$BITRISE_SOURCE_DIR/xcodebuild.xcresult"
         - test_name: UnitTests
-    - deploy-to-bitrise-io@2: {}
-    - slack@3:
+    - deploy-to-bitrise-io@2.10.0: {}
+    - slack@4.2.1:
         run_if: ".IsBuildFailed"
         inputs:
         - channel: "#mobile-alerts-ios"
         - message: "The build run the Focus testPlan: UnitTests"
         - webhook_url: "$SLACK_WEBHOOK"
-  
+
   # # FOCUS UTILITIES WORKFLOWS
   focus-clone-and-build-dependencies:
     description: Clones the repo and builds dependencies
     steps:
-    - activate-ssh-key@4:
+    - activate-ssh-key@4.1.1:
         run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
     - git-clone@6.2: {}
-    - certificate-and-profile-installer@1: {}
-    - script@1:
+    - certificate-and-profile-installer@1.11.4: {}
+    - script@1.2.1:
         inputs:
         - content: |-
             #!/usr/bin/env bash
@@ -1771,13 +1795,13 @@ workflows:
         title: ContentBlockerGen
 
   focus-pull-and-unzip-dependencies:
-    description: Pulls and unzip the dependencies from previous stage 
+    description: Pulls and unzip the dependencies from previous stage
     steps:
-    - pull-intermediate-files@1:
+    - pull-intermediate-files@1.2.1:
         inputs:
         - verbose: true
         - artifact_sources: build_applications.focus_configure_build
-    - script@1.1:
+    - script@1.2.1:
         title: Unzip
         inputs:
         - content: |
@@ -1790,22 +1814,22 @@ workflows:
 
   focus-set-project-version:
     steps:
-    - set-xcode-build-number@1:
+    - set-xcode-build-number@2.0.6:
         inputs:
         - build_short_version_string: "$BITRISE_RELEASE_VERSION"
         - plist_path: focus-ios/Blockzilla/Info.plist
         title: Set Blockzilla version numbers
-    - set-xcode-build-number@1:
+    - set-xcode-build-number@2.0.6:
         inputs:
         - build_short_version_string: "$BITRISE_RELEASE_VERSION"
         - plist_path: focus-ios/ContentBlocker/Info.plist
         title: Set ContentBlocker version numbers
-    - set-xcode-build-number@1:
+    - set-xcode-build-number@2.0.6:
         inputs:
         - build_short_version_string: "$BITRISE_RELEASE_VERSION"
         - plist_path: focus-ios/FocusIntentExtension/Info.plist
         title: Set FocusIntentExtension version numbers
-    - set-xcode-build-number@1:
+    - set-xcode-build-number@2.0.6:
         inputs:
         - build_short_version_string: "$BITRISE_RELEASE_VERSION"
         - plist_path: focus-ios/OpenInFocus/Info.plist
@@ -1813,7 +1837,7 @@ workflows:
 
   focus-configure-nimbus:
     steps:
-    - script@1:
+    - script@1.2.1:
         title: Configure Nimbus
         inputs:
         - content: |-
@@ -1826,17 +1850,17 @@ workflows:
 
   focus-configure-sentry:
     steps:
-    - script@1:
+    - script@1.2.1:
         title: Configure Sentry
         inputs:
         - content: |-
             #!/usr/bin/env bash
             set -x
-            /usr/libexec/PlistBuddy -c "Add :SentryDSN string ${SENTRY_DSN}" focus-ios/Blockzilla/Info.plist
+            /usr/libexec/PlistBuddy -c "Add :SentryDSN string ${SENTRY_DSN_FOCUS}" focus-ios/Blockzilla/Info.plist
 
   focus-set-default-browser-entitlement:
     steps:
-    - script@1:
+    - script@1.2.1:
         title: Set Default Web Browser Entitlement
         inputs:
         - content: |-
@@ -1969,7 +1993,7 @@ workflows:
         - connection: 'off'
         - app_password: "$APPLE_ACCOUNT_PW"
         - itunescon_user: "$APPLE_ACCOUNT_ID"
-    - script@1:
+    - script@1.2.1:
         title: Upload Focus Symbols
         inputs:
         - content: |-
@@ -1988,7 +2012,7 @@ workflows:
         - connection: 'off'
         - app_password: "$APPLE_ACCOUNT_PW"
         - itunescon_user: "$APPLE_ACCOUNT_ID"
-    - script@1:
+    - script@1.2.1:
         title: Upload Klar Symbols
         inputs:
         - content: |-
@@ -2024,7 +2048,7 @@ workflows:
         - build_short_version_string: "$BITRISE_NIGHTLY_VERSION"
         - plist_path: focus-ios/OpenInFocus/Info.plist
         title: Set OpenInFocus version numbers
-    - certificate-and-profile-installer@1: {}
+    - certificate-and-profile-installer@1.11.4: {}
     - xcode-archive@3:
         inputs:
         - project_path: focus-ios/Blockzilla.xcodeproj
@@ -2037,7 +2061,7 @@ workflows:
         - connection: 'off'
         - app_password: "$APPLE_ACCOUNT_PW"
         - itunescon_user: "$APPLE_ACCOUNT_ID"
-    - script@1:
+    - script@1.2.1:
         title: Upload Focus Symbols
         inputs:
         - content: |-
@@ -2056,7 +2080,7 @@ workflows:
         - connection: 'off'
         - app_password: "$APPLE_ACCOUNT_PW"
         - itunescon_user: "$APPLE_ACCOUNT_ID"
-    - script@1:
+    - script@1.2.1:
         title: Upload Klar Symbols
         inputs:
         - content: |-
@@ -2073,20 +2097,20 @@ workflows:
     - focus-configure-nimbus
     - focus-configure-sentry
     steps:
-    - certificate-and-profile-installer@1: {}
-    - xcode-archive@3:
+    - certificate-and-profile-installer@1.11.4: {}
+    - xcode-archive@5.4.0:
         inputs:
         - project_path: focus-ios/Blockzilla.xcodeproj
         - scheme: Focus
         - team_id: 43AQ936H96
         - export_method: app-store
         title: Build Focus
-    - deploy-to-itunesconnect-application-loader@1:
+    - deploy-to-itunesconnect-application-loader@1.5.0:
         inputs:
         - connection: 'off'
         - app_password: "$APPLE_ACCOUNT_PW"
         - itunescon_user: "$APPLE_ACCOUNT_ID"
-    - script@1:
+    - script@1.2.1:
         title: Upload Focus Symbols
         inputs:
         - content: |-
@@ -2094,18 +2118,18 @@ workflows:
             set -x
             focus-ios/focus-ios-tests/tools/sentry-cli --auth-token "$SENTRY_AUTH_TOKEN" upload-dif \
               --org mozilla --project focus-ios "$BITRISE_DSYM_DIR_PATH"
-    - xcode-archive@3:
+    - xcode-archive@5.4.0:
         inputs:
         - project_path: focus-ios/Blockzilla.xcodeproj
         - scheme: Klar
         - export_method: app-store
         title: Build Klar
-    - deploy-to-itunesconnect-application-loader@1:
+    - deploy-to-itunesconnect-application-loader@1.5.0:
         inputs:
         - connection: 'off'
         - app_password: "$APPLE_ACCOUNT_PW"
         - itunescon_user: "$APPLE_ACCOUNT_ID"
-    - script@1:
+    - script@1.2.1:
         title: Upload Klar Symbols
         inputs:
         - content: |-
@@ -2124,17 +2148,17 @@ app:
     BITRISE_NIGHTLY_VERSION: '9000'
   - opts:
       is_expand: false
-    BITRISE_RELEASE_VERSION: '129.0'
+    BITRISE_RELEASE_VERSION: '137.0'
   - opts:
       is_expand: false
-    BITRISE_BETA_VERSION: '129.0'
+    BITRISE_BETA_VERSION: '137.0'
 
 trigger_map:
 - push_branch: main
   pipeline: pipeline_build_and_test
 - push_branch: epic-branch/*
   pipeline: pipeline_build_and_test
-- push_branch: release/v129
+- push_branch: release/v137
   pipeline: pipeline_build_and_test
 - pull_request_target_branch: main
   pipeline: pipeline_build_and_test
@@ -2145,6 +2169,5 @@ trigger_map:
 
 meta:
   bitrise.io:
-    stack: osx-xcode-15.4.x
+    stack: osx-xcode-16.2.x-edge
     machine_type_id: g2-m1.8core
-

@@ -12,10 +12,22 @@ class ThrottlerTests: XCTestCase {
         static let defaultTestMaxWaitTime: Double = 2
     }
 
-    private let testQueue = DispatchQueue.global()
+    private var testQueue: DispatchQueue!
     private var throttler: Throttler!
     private var expectation: XCTestExpectation!
     private var testValue = 0
+
+    override func setUp() {
+        super.setUp()
+        testQueue = DispatchQueue.global()
+    }
+
+    override func tearDown() {
+        throttler = nil
+        expectation = nil
+        testQueue = nil
+        super.tearDown()
+    }
 
     func testMultipleFastConsecutiveCallsAreThrottledAndExecutedAtMostOneTime() {
         prepareTest(timeout: Timing.veryLongDelay)
@@ -37,7 +49,7 @@ class ThrottlerTests: XCTestCase {
     }
 
     func testSecondCallAfterDelayThresholdCallsBothClosures() {
-        let threshold: Double = 0.5
+        let threshold = 0.5
         let step: Double = (threshold / 2.0)
         prepareTest(timeout: threshold)
 

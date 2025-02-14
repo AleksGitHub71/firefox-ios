@@ -14,7 +14,7 @@ class CredentialPasscodeRequirementViewController: UIViewController {
     private struct UX {
         static let cancelButtonCornerRadius: CGFloat = 8
     }
-    var delegate: CredentialPasscodeRequirementViewControllerDelegate?
+    weak var delegate: CredentialPasscodeRequirementViewControllerDelegate?
 
     private lazy var logoImageView: UIImageView = {
         let image = UIImageView(image: UIImage(named: "logo-glyph"))
@@ -64,7 +64,7 @@ class CredentialPasscodeRequirementViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        view.backgroundColor = UIColor.CredentialProvider.welcomeScreenBackgroundColor
+        view.backgroundColor = CredentialProvider.welcomeScreenBackgroundColor
 
         view.addSubviews(logoImageView, titleLabel, taglineLabel, warningLabel, cancelButton)
 

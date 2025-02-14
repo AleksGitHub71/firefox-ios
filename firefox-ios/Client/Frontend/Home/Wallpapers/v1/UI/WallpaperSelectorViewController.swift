@@ -24,11 +24,10 @@ class WallpaperSelectorViewController: WallpaperBaseViewController, Themeable {
 
     // Views
     private lazy var contentView: UIView = .build { _ in }
-    private var collectionViewHeightConstraint: NSLayoutConstraint!
+    private var collectionViewHeightConstraint: NSLayoutConstraint?
 
     private lazy var headerLabel: UILabel = .build { label in
-        label.font = DefaultDynamicFontHelper.preferredFont(withTextStyle: .headline,
-                                                            size: 17)
+        label.font = FXFontStyles.Regular.headline.scaledFont()
         label.adjustsFontForContentSizeCategory = true
         label.text = .Onboarding.Wallpaper.SelectorTitle
         label.textAlignment = .center
@@ -37,8 +36,7 @@ class WallpaperSelectorViewController: WallpaperBaseViewController, Themeable {
     }
 
     private lazy var instructionLabel: UILabel = .build { label in
-        label.font = DefaultDynamicFontHelper.preferredFont(withTextStyle: .body,
-                                                            size: 12)
+        label.font = FXFontStyles.Regular.caption1.scaledFont()
         label.adjustsFontForContentSizeCategory = true
         label.text = .Onboarding.Wallpaper.SelectorDescription
         label.textAlignment = .center
@@ -91,7 +89,7 @@ class WallpaperSelectorViewController: WallpaperBaseViewController, Themeable {
         // make collection view fixed height so the bottom sheet can size correctly
         let height = collectionView.collectionViewLayout.collectionViewContentSize.height +
             WallpaperSelectorViewController.UX.cardShadowHeight
-        collectionViewHeightConstraint.constant = height
+        collectionViewHeightConstraint?.constant = height
         view.layoutIfNeeded()
 
         collectionView.selectItem(at: viewModel.selectedIndexPath, animated: false, scrollPosition: [])
@@ -147,7 +145,8 @@ private extension WallpaperSelectorViewController {
         view.addSubview(contentView)
 
         collectionViewHeightConstraint = collectionView.heightAnchor.constraint(equalToConstant: 300)
-        collectionViewHeightConstraint.priority = UILayoutPriority(999)
+        collectionViewHeightConstraint?.priority = UILayoutPriority(999)
+        collectionViewHeightConstraint?.isActive = true
 
         NSLayoutConstraint.activate([
             contentView.topAnchor.constraint(equalTo: view.topAnchor),
@@ -167,7 +166,6 @@ private extension WallpaperSelectorViewController {
             collectionView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             collectionView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -43),
             collectionView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            collectionViewHeightConstraint
         ])
     }
 

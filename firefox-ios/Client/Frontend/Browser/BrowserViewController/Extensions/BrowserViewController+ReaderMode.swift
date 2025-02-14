@@ -4,20 +4,19 @@
 
 import WebEngine
 import Shared
+import Common
 
 extension BrowserViewController: ReaderModeDelegate {
     func readerMode(_ readerMode: ReaderMode, didChangeReaderModeState state: ReaderModeState, forTab tab: Tab) {
         // Update reader mode state if is the selected tab. Otherwise it will update once is active
-        if !isToolbarRefactorEnabled, tabManager.selectedTab === tab, !isToolbarRefactorEnabled {
-            urlBar.updateReaderModeState(state)
-        }
+        guard tabManager.selectedTab === tab else { return }
+        updateReaderModeState(for: tab, readerModeState: state)
     }
 
     func readerMode(_ readerMode: ReaderMode, didDisplayReaderizedContentForTab tab: Tab) {
         // Update reader mode state if is the selected tab. Otherwise it will update once is active
         if tabManager.selectedTab === tab {
             self.showReaderModeBar(animated: true)
-            tab.showContent(true)
         }
     }
 
@@ -91,7 +90,7 @@ extension BrowserViewController {
     }
 
     func hideReaderModeBar(animated: Bool) {
-        guard let readerModeBar = readerModeBar else { return }
+        guard let readerModeBar else { return }
 
         if isBottomSearchBar {
             overKeyboardContainer.removeArrangedView(readerModeBar)

@@ -10,32 +10,23 @@ import UIKit
 /// Image cache wrapper around Kingfisher image cache
 /// Used in SiteImageCache
 protocol DefaultImageCache {
-    func retrieveImage(forKey key: String) async throws -> UIImage?
+    func retrieve(forKey key: String) async throws -> UIImage?
 
     func store(image: UIImage, forKey key: String)
 
-    func clearCache()
+    func clear()
 }
 
 extension ImageCache: DefaultImageCache {
-    func retrieveImage(forKey key: String) async throws -> UIImage? {
-        return try await withCheckedThrowingContinuation { continuation in
-            retrieveImage(forKey: key) { result in
-                switch result {
-                case .success(let imageResult):
-                    continuation.resume(returning: imageResult.image)
-                case .failure(let error):
-                    continuation.resume(throwing: error)
-                }
-            }
-        }
+    func retrieve(forKey key: String) async throws -> UIImage? {
+        return try await Kingfisher.ImageCache.default.retrieveImage(forKey: key).image
     }
 
     func store(image: UIImage, forKey key: String) {
         self.store(image, forKey: key)
     }
 
-    func clearCache() {
+    func clear() {
         clearMemoryCache()
         clearDiskCache()
     }

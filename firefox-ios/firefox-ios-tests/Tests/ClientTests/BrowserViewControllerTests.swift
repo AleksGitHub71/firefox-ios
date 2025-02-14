@@ -19,8 +19,11 @@ class BrowserViewControllerTests: XCTestCase {
         super.setUp()
         DependencyHelperMock().bootstrapDependencies()
         TelemetryContextualIdentifier.setupContextId()
+        // Due to changes allow certain custom pings to implement their own opt-out
+        // independent of Glean, custom pings may need to be registered manually in
+        // tests in order to put them in a state in which they can collect data.
+        Glean.shared.registerPings(GleanMetrics.Pings.shared)
         Glean.shared.resetGlean(clearStores: true)
-        Glean.shared.enableTestingMode()
 
         profile = MockProfile()
         tabManager = MockTabManager()

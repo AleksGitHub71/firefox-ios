@@ -9,7 +9,11 @@ import TabDataStore
 @testable import Client
 
 class DependencyHelperMock {
-    func bootstrapDependencies(injectedTabManager: TabManager? = nil) {
+    func bootstrapDependencies(
+        injectedTabManager: TabManager? = nil,
+        injectedMicrosurveyManager: MicrosurveyManager? = nil,
+        injectedPocketManager: PocketManagerProvider? = nil
+    ) {
         AppContainer.shared.reset()
 
         let profile: Client.Profile = BrowserProfile(
@@ -27,7 +31,7 @@ class DependencyHelperMock {
         let windowManager: WindowManager = MockWindowManager(wrappedManager: WindowManagerImplementation())
         let tabManager: TabManager =
         injectedTabManager ?? TabManagerImplementation(profile: profile,
-                                                       uuid: windowUUID,
+                                                       uuid: ReservedWindowUUID(uuid: windowUUID, isNew: false),
                                                        windowManager: windowManager)
 
         let appSessionProvider: AppSessionProvider = AppSessionManager()
@@ -36,17 +40,21 @@ class DependencyHelperMock {
         let themeManager: ThemeManager = MockThemeManager()
         AppContainer.shared.register(service: themeManager)
 
-        let ratingPromptManager = RatingPromptManager(profile: profile)
-        AppContainer.shared.register(service: ratingPromptManager)
-
         let downloadQueue = DownloadQueue()
         AppContainer.shared.register(service: downloadQueue)
 
         AppContainer.shared.register(service: windowManager)
         windowManager.newBrowserWindowConfigured(AppWindowInfo(tabManager: tabManager), uuid: windowUUID)
 
-        let microsurveyManager = MicrosurveySurfaceManager()
+        let microsurveyManager: MicrosurveyManager = injectedMicrosurveyManager ?? MockMicrosurveySurfaceManager()
         AppContainer.shared.register(service: microsurveyManager)
+
+        let pocketManager: PocketManagerProvider = injectedPocketManager ?? MockPocketManager()
+        AppContainer.shared.register(service: pocketManager)
+
+        let gleanUsageReportingMetricsService: GleanUsageReportingMetricsService =
+        MockGleanUsageReportingMetricsService(profile: profile)
+        AppContainer.shared.register(service: gleanUsageReportingMetricsService)
 
         // Tell the container we are done registering
         AppContainer.shared.bootstrap()

@@ -6,9 +6,10 @@ import SwiftUI
 import WidgetKit
 import UIKit
 import Combine
+import Common
 
 struct OpenTabsWidget: Widget {
-    private let kind: String = "Quick View"
+    private let kind = "Quick View"
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: TabProvider()) { entry in
@@ -36,7 +37,7 @@ struct OpenTabsView: View {
                     if entry.favicons[tab.imageKey] != nil {
                         (entry.favicons[tab.imageKey])!.resizable().frame(width: 16, height: 16)
                     } else {
-                        Image("globeLarge")
+                        Image(decorative: StandardImageIdentifiers.Large.globe)
                             .foregroundColor(Color.white)
                             .frame(width: 16, height: 16)
                     }
@@ -46,6 +47,7 @@ struct OpenTabsView: View {
                         .multilineTextAlignment(.leading)
                         .lineLimit(1)
                         .font(.system(size: 15, weight: .regular, design: .default))
+                    Spacer()
                 }.padding(.horizontal)
             }
 
@@ -58,7 +60,7 @@ struct OpenTabsView: View {
 
     var openFirefoxButton: some View {
         HStack(alignment: .center, spacing: 15) {
-            Image("externalLinkSmall").foregroundColor(Color.white)
+            Image(decorative: StandardImageIdentifiers.Small.externalLink).foregroundColor(Color.white)
             Text("Open Firefox")
                 .foregroundColor(Color.white).lineLimit(1)
                 .font(.system(size: 13, weight: .semibold, design: .default))
@@ -81,7 +83,7 @@ struct OpenTabsView: View {
                     Text(String.NoOpenTabsLabel)
                     HStack {
                         Spacer()
-                        Image("externalLinkSmall")
+                        Image(decorative: StandardImageIdentifiers.Small.externalLink)
                         Text(String.OpenFirefoxLabel)
                             .foregroundColor(Color.white).lineLimit(1)
                             .font(.system(size: 13, weight: .semibold, design: .default))
@@ -96,7 +98,9 @@ struct OpenTabsView: View {
 
                     if entry.tabs.count > numberOfTabsToDisplay {
                         HStack(alignment: .center, spacing: 15) {
-                            Image("externalLinkSmall").foregroundColor(Color.white).frame(width: 16, height: 16)
+                            Image(decorative: StandardImageIdentifiers.Small.externalLink)
+                                .foregroundColor(Color.white)
+                                .frame(width: 16, height: 16)
                             Text(
                                 String.localizedStringWithFormat(
                                     String.MoreTabsLabel,

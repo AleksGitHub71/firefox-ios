@@ -82,6 +82,11 @@ only_rules: # Only enforce these rules, ignore all others
   - vertical_whitespace_closing_braces
   - vertical_whitespace_opening_braces
   - yoda_condition
+  - accessibility_label_for_image
+  - accessibility_trait_for_button
+  - force_cast
+  - closure_body_length
+  - implicitly_unwrapped_optional
 
 # These rules were originally opted into. Disabling for now to get
 # Swiftlint up and running.
@@ -97,11 +102,18 @@ line_length:
   ignores_urls: true
   ignores_interpolated_strings: true
 
+closure_body_length:
+  warning: 51
+  error: 51
+
 file_header:
   required_string: |
                     // This Source Code Form is subject to the terms of the Mozilla Public
                     // License, v. 2.0. If a copy of the MPL was not distributed with this
                     // file, You can obtain one at http://mozilla.org/MPL/2.0/
+
+redundant_type_annotation:
+  consider_default_literal_types_redundant: true
 
 analyzer_rules: # Rules run by `swiftlint analyze`
   - unused_import
@@ -129,12 +141,14 @@ excluded: # paths to ignore during linting. Takes precedence over `included`.
   # so must be excluded due to file_header rule
   - firefox-ios/Package.swift
   - BrowserKit/Package.swift
+  - BrowserKit/Sources/Shared/Deferred/
   - BrowserKit/.build/
   - firefox-ios/Client/ContentBlocker/ContentBlockerGenerator/Package.swift
   - Package.swift
   - firefox-ios/Build/Intermediates.noindex/Client.build/Fennec-iphoneos/WidgetKitExtension.build/DerivedSources/IntentDefinitionGenerated/WidgetIntents/*
-  # Temporarly ignore focus-ios folder
-  - focus-ios/
+  # Focus specific
+  - focus-ios/Blockzilla/Generated
+  - focus-ios-tests/tools/Localizations
 
 included:
   - /Users/vagrant/git

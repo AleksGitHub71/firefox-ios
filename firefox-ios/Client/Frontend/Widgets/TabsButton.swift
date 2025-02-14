@@ -9,7 +9,7 @@ import Common
 class TabsButton: UIButton, ThemeApplicable {
     struct UX {
         static let cornerRadius: CGFloat = 2
-        static let titleFont: UIFont = UIConstants.DefaultChromeSmallFontBold
+        static let titleFont: UIFont = FXFontStyles.Bold.caption2.systemFont()
         static let insideButtonSize: CGFloat = 24
 
         // Animation constants
@@ -19,14 +19,14 @@ class TabsButton: UIButton, ThemeApplicable {
         static let flipAnimationVelocity: CGFloat = 0.0
 
         // Tab count related constants
-        static let defaultCountLabelText: String = "0"
-        static let defaultCountToBe: String = "1"
-        static let maxTabCountToShowInfinity: Int = 100
-        static let infinitySymbol: String = "\u{221E}"
+        static let defaultCountLabelText = "0"
+        static let defaultCountToBe = "1"
+        static let maxTabCountToShowInfinity = 100
+        static let infinitySymbol = "\u{221E}"
     }
 
-    private var selectedTintColor: UIColor!
-    private var unselectedTintColor: UIColor!
+    private var selectedTintColor: UIColor?
+    private var unselectedTintColor: UIColor?
     private var theme: Theme?
 
     // When all animations are completed, this is the most-recently assigned tab count that is shown.

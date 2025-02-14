@@ -4,7 +4,6 @@
 
 import Common
 import Shared
-import Storage
 import SwiftUI
 import UIKit
 
@@ -211,6 +210,7 @@ extension CreditCardTableViewController: UITableViewDelegate,
         hostingCell.contentView.backgroundColor = .clear
         hostingCell.selectionStyle = .none
         hostingCell.isAccessibilityElement = true
+        hostingCell.accessibilityIdentifier = "creditCardCell_\(indexPath.row)"
         return hostingCell
     }
 }

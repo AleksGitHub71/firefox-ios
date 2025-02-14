@@ -40,7 +40,7 @@ final class PrivateHomepageViewController:
     let windowUUID: WindowUUID
     var currentWindowUUID: UUID? { windowUUID }
 
-    var parentCoordinator: PrivateHomepageDelegate?
+    weak var parentCoordinator: PrivateHomepageDelegate?
 
     private let overlayManager: OverlayModeManager
     private let logger: Logger
@@ -72,7 +72,7 @@ final class PrivateHomepageViewController:
             })
     }
 
-    private lazy var scrollContainer: UIStackView = .build { stackView in
+    private let scrollContainer: UIStackView = .build { stackView in
         stackView.axis = .vertical
         stackView.spacing = UX.scrollContainerStackSpacing
     }
@@ -85,12 +85,14 @@ final class PrivateHomepageViewController:
             link: .FirefoxHomepage.FeltPrivacyUI.Link
         )
         messageCard.configure(with: messageCardModel, and: themeManager.getCurrentTheme(for: windowUUID))
-        messageCard.privateBrowsingLinkTapped = learnMore
+        messageCard.privateBrowsingLinkTapped = { [weak self] in
+            self?.learnMore()
+        }
         return messageCard
     }()
 
-    private lazy var homepageHeaderCell: HomepageHeaderCell = {
-        let header = HomepageHeaderCell()
+    private lazy var homepageHeaderCell: LegacyHomepageHeaderCell = {
+        let header = LegacyHomepageHeaderCell()
         header.applyTheme(theme: themeManager.getCurrentTheme(for: windowUUID))
         header.configure(with: headerViewModel)
         return header
@@ -132,6 +134,11 @@ final class PrivateHomepageViewController:
             homepageHeaderCell.configure(with: headerViewModel)
         }
         applyTheme()
+    }
+
+    deinit {
+        // TODO: FXIOS-11187 - Investigate further on privateMessageCardCell memory leaking during viewing private tab.
+        scrollView.removeFromSuperview()
     }
 
     private func setupLayout() {
@@ -209,7 +216,7 @@ final class PrivateHomepageViewController:
         guard let privateBrowsingURL = SupportUtils.URLForPrivateBrowsingLearnMore else {
             self.logger.log("Failed to retrieve URL from SupportUtils.URLForPrivateBrowsingLearnMore",
                             level: .debug,
-                            category: .homepage)
+                            category: .legacyHomepage)
             return
         }
         parentCoordinator?.homePanelDidRequestToOpenInNewTab(

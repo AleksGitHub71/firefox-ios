@@ -9,7 +9,7 @@ fileprivate extension Int {
     static let tMin = 1
     static let tMax = 26
     static let initialBias = 72
-    static let initialN: Int = 128 // 0x80
+    static let initialN = 128 // 0x80
 }
 
 fileprivate extension Character {
@@ -60,7 +60,7 @@ extension String {
 
     fileprivate func encode(_ input: String) -> String {
         var output = ""
-        var d: Int = 0
+        var d = 0
         var extendedChars = [Int]()
         for c in input.unicodeScalars {
             if Int(c.value) < Int.initialN {
@@ -80,8 +80,8 @@ extension String {
         var n = Int.initialN
         var delta = 0
         var bias = Int.initialBias
-        var h: Int = 0
-        var b: Int = 0
+        var h = 0
+        var b = 0
 
         if d > 0 {
             h = output.unicodeScalars.count - 1
@@ -196,11 +196,9 @@ extension String {
             return self
         }
         var labels = self.components(separatedBy: ".")
-        for (i, part) in labels.enumerated() {
-            if !isValidUnicodeScala(part) {
-                let a = encode(part)
-                labels[i] = String.prefixPunycode + a
-            }
+        for (index, part) in labels.enumerated() where !isValidUnicodeScala(part) {
+            let a = encode(part)
+            labels[index] = String.prefixPunycode + a
         }
         let resultString = labels.joined(separator: ".")
         return resultString
@@ -208,11 +206,9 @@ extension String {
 
     public func asciiHostToUTF8() -> String {
         var labels = self.components(separatedBy: ".")
-        for (index, part) in labels.enumerated() {
-            if isValidPunycodeScala(part) {
-                let changeStr = String(part[part.index(part.startIndex, offsetBy: 4)...])
-                labels[index] = decode(changeStr)
-            }
+        for (index, part) in labels.enumerated() where isValidPunycodeScala(part) {
+            let changeStr = String(part[part.index(part.startIndex, offsetBy: 4)...])
+            labels[index] = decode(changeStr)
         }
         let resultString = labels.joined(separator: ".")
         return resultString

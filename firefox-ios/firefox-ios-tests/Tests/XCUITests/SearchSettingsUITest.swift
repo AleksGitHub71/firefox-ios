@@ -9,7 +9,7 @@ let defaultSearchEngine2 = "Bing"
 let customSearchEngine = ["name": "youtube", "url": "https://youtube.com/search?q=%s"]
 
 class SearchSettingsUITests: BaseTestCase {
-    // https://testrail.stage.mozaws.net/index.php?/cases/view/2435664
+    // https://mozilla.testrail.io/index.php?/cases/view/2435664
     func testDefaultSearchEngine() {
         navigator.nowAt(NewTabScreen)
         navigator.goto(SearchSettings)
@@ -18,13 +18,13 @@ class SearchSettingsUITests: BaseTestCase {
         mozWaitForElementToExist(app.tables.cells.staticTexts[defaultSearchEngine1])
 
         // Change to another browser and check it is set as default
-        defaultSearchEngine.tap()
+        defaultSearchEngine.waitAndTap()
         let listOfEngines = app.tables
-        listOfEngines.staticTexts[defaultSearchEngine2].tap()
+        listOfEngines.staticTexts[defaultSearchEngine2].waitAndTap()
         mozWaitForElementToExist(app.tables.cells.staticTexts[defaultSearchEngine2])
     }
 
-    // https://testrail.stage.mozaws.net/index.php?/cases/view/2353247
+    // https://mozilla.testrail.io/index.php?/cases/view/2353247
     func testCustomSearchEngineIsEditable() {
         navigator.nowAt(NewTabScreen)
         navigator.goto(SearchSettings)
@@ -35,7 +35,7 @@ class SearchSettingsUITests: BaseTestCase {
 
         // Check that it can be edited
         XCTAssertTrue(app.buttons["Edit"].isEnabled)
-        app.buttons["Edit"].tap()
+        app.buttons["Edit"].waitAndTap()
         XCTAssertTrue(app.buttons["Done"].isEnabled)
         if #unavailable(iOS 17) {
             mozWaitForElementToExist(app.tables.buttons["Delete \(customSearchEngine["name"]!)"])
@@ -45,21 +45,17 @@ class SearchSettingsUITests: BaseTestCase {
     }
 
     private func addCustomSearchEngine() {
-        mozWaitForElementToExist(app.tables.cells[AccessibilityIdentifiers.Settings.Search.customEngineViewButton])
-        app.tables.cells[AccessibilityIdentifiers.Settings.Search.customEngineViewButton].tap()
+        app.tables.cells[AccessibilityIdentifiers.Settings.Search.customEngineViewButton].waitAndTap()
         mozWaitForElementToExist(app.tables.cells.staticTexts["Search Engine"])
-        app.tables.cells.textViews["customEngineTitle"].tap()
-        app.tables.cells.textViews["customEngineTitle"].typeText(customSearchEngine["name"]!)
+        app.tables.cells.textViews["customEngineTitle"].tapAndTypeText(customSearchEngine["name"]!)
 
-        app.tables.cells.textViews["customEngineUrl"].tap()
-        app.tables.cells.textViews["customEngineUrl"].typeText(customSearchEngine["url"]!)
-        mozWaitForElementToExist(app.buttons["Save"], timeout: 5)
-        app.buttons["Save"].tap()
+        app.tables.cells.textViews["customEngineUrl"].tapAndTypeText(customSearchEngine["url"]!)
+        app.buttons["Save"].waitAndTap(timeout: 5)
         // Check that custom engine has been added successfully
         mozWaitForElementToExist(app.tables.cells.staticTexts[customSearchEngine["name"]!])
     }
 
-    // https://testrail.stage.mozaws.net/index.php?/cases/view/2353248
+    // https://mozilla.testrail.io/index.php?/cases/view/2353248
     func testCustomSearchEngineAsDefaultIsNotEditable() {
         navigator.nowAt(NewTabScreen)
         navigator.goto(SearchSettings)
@@ -72,14 +68,14 @@ class SearchSettingsUITests: BaseTestCase {
 
         // Select the custom engine as the default one
         let defaultSearchEngine = app.tables.cells.element(boundBy: 0)
-        defaultSearchEngine.tap()
+        defaultSearchEngine.waitAndTap()
         let listOfEngines = app.tables
-        listOfEngines.staticTexts[customSearchEngine["name"]!].tap()
+        listOfEngines.staticTexts[customSearchEngine["name"]!].waitAndTap()
         // Edit is disabled
         XCTAssertFalse(app.buttons["Edit"].isEnabled)
     }
 
-    // https://testrail.stage.mozaws.net/index.php?/cases/view/2353249
+    // https://mozilla.testrail.io/index.php?/cases/view/2353249
     func testNavigateToSearchPickerTurnsOffEditing() {
         navigator.nowAt(NewTabScreen)
         navigator.goto(SearchSettings)
@@ -89,13 +85,13 @@ class SearchSettingsUITests: BaseTestCase {
         addCustomSearchEngine()
         // Edit is enabled
         XCTAssertTrue(app.buttons["Edit"].isEnabled)
-        app.buttons["Edit"].tap()
+        app.buttons["Edit"].waitAndTap()
         XCTAssertTrue(app.buttons["Done"].isEnabled)
 
         // Navigate to the search engine picker and back
         let defaultSearchEngine = app.tables.cells.element(boundBy: 0)
-        defaultSearchEngine.tap()
-        app.buttons["Cancel"].tap()
+        defaultSearchEngine.waitAndTap()
+        app.buttons["Cancel"].waitAndTap()
 
         // Check to see we're not in editing state, edit is enable and done does not appear
         XCTAssertTrue(app.buttons["Edit"].isEnabled)
@@ -105,7 +101,7 @@ class SearchSettingsUITests: BaseTestCase {
         XCTAssertEqual(app.tables.cells.switches.count, app.tables.cells.count - 3)
     }
 
-    // https://testrail.stage.mozaws.net/index.php?/cases/view/2353250
+    // https://mozilla.testrail.io/index.php?/cases/view/2353250
     func testDeletingLastCustomEngineExitsEditing() {
         navigator.nowAt(NewTabScreen)
         navigator.goto(SearchSettings)
@@ -114,15 +110,15 @@ class SearchSettingsUITests: BaseTestCase {
         // Add a custom search engine
         addCustomSearchEngine()
         XCTAssertTrue(app.buttons["Edit"].isEnabled)
-        app.buttons["Edit"].tap()
+        app.buttons["Edit"].waitAndTap()
         // Remove the custom search engine and check that edit is disabled
         let tablesQuery = app.tables
         if #unavailable(iOS 17) {
-            tablesQuery.buttons["Delete \(customSearchEngine["name"]!)"].tap()
+            tablesQuery.buttons["Delete \(customSearchEngine["name"]!)"].waitAndTap()
         } else {
-            tablesQuery.buttons["Remove \(customSearchEngine["name"]!)"].tap()
+            tablesQuery.buttons["Remove \(customSearchEngine["name"]!)"].waitAndTap()
         }
-        tablesQuery.buttons[AccessibilityIdentifiers.Settings.Search.deleteButton].tap()
+        tablesQuery.buttons[AccessibilityIdentifiers.Settings.Search.deleteButton].waitAndTap()
         XCTAssertFalse(app.buttons["Edit"].isEnabled)
     }
 }

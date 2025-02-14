@@ -5,12 +5,11 @@
 import Common
 import UIKit
 import Shared
-import Storage
 import SwiftUI
 
 import struct MozillaAppServices.CreditCard
 
-class CreditCardSettingsViewController: SensitiveViewController, Themeable {
+class CreditCardSettingsViewController: SensitiveViewController, UIAdaptivePresentationControllerDelegate, Themeable {
     var viewModel: CreditCardSettingsViewModel
     var themeObserver: NSObjectProtocol?
     var themeManager: ThemeManager
@@ -187,6 +186,7 @@ class CreditCardSettingsViewController: SensitiveViewController, Themeable {
         guard let creditCardAddEditView = creditCardAddEditView else { return}
         creditCardAddEditView.view.backgroundColor = .clear
         creditCardAddEditView.modalPresentationStyle = .formSheet
+        creditCardAddEditView.presentationController?.delegate = self
         present(creditCardAddEditView, animated: true, completion: nil)
     }
 
@@ -249,5 +249,12 @@ class CreditCardSettingsViewController: SensitiveViewController, Themeable {
         TelemetryWrapper.recordEvent(category: .action,
                                      method: .change,
                                      object: .creditCardModified)
+    }
+
+    // MARK: - UIAdaptivePresentationControllerDelegate
+    func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        if presentationController.presentedViewController is UIHostingController<CreditCardInputView> {
+            viewModel.cardInputViewModel.clearValues()
+        }
     }
 }

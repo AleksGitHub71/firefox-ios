@@ -12,7 +12,7 @@ import Common
 
 protocol ToolBarActionMenuDelegate: AnyObject {
     func updateToolbarState()
-    func addBookmark(url: String, title: String?)
+    func addBookmark(url: String, title: String?, site: Site?)
 
     @discardableResult
     func openURLInNewTab(_ url: URL?, isPrivate: Bool) -> Tab
@@ -26,6 +26,8 @@ protocol ToolBarActionMenuDelegate: AnyObject {
     func showZoomPage(tab: Tab)
     func showCreditCardSettings()
     func showSignInView(fxaParameters: FxASignInViewParameters)
+    func showFilePicker(fileURL: URL)
+    func showEditBookmark()
 }
 
 extension ToolBarActionMenuDelegate {
@@ -44,6 +46,7 @@ enum MenuButtonToastAction {
     case pinPage
     case removePinPage
     case closeTab
+    case downloadPDF
 }
 
 /// MainMenuActionHelper handles the main menu (hamburger menu) in the toolbar.
@@ -54,7 +57,8 @@ enum MenuButtonToastAction {
 class MainMenuActionHelper: PhotonActionSheetProtocol,
                             FeatureFlaggable,
                             CanRemoveQuickActionBookmark,
-                            AppVersionUpdateCheckerProtocol {
+                            AppVersionUpdateCheckerProtocol,
+                            BookmarksRefactorFeatureFlagProvider {
     typealias SendToDeviceDelegate = InstructionsViewDelegate & DevicePickerViewControllerDelegate
 
     private let isHomePage: Bool
@@ -269,6 +273,13 @@ class MainMenuActionHelper: PhotonActionSheetProtocol,
             let sendToDeviceAction = getSendToDevice()
             append(to: &section, action: sendToDeviceAction)
 
+            if let tab = self.selectedTab,
+                let url = tab.canonicalURL?.displayURL,
+                url.lastPathComponent.suffix(4) == ".pdf" {
+                let downloadPDFAction = getDownloadPDFAction()
+                append(to: &section, action: downloadPDFAction)
+            }
+
             let shareAction = getShareAction()
             append(to: &section, action: shareAction)
         }
@@ -300,7 +311,7 @@ class MainMenuActionHelper: PhotonActionSheetProtocol,
 
     private func getNewTabAction() -> PhotonRowActions? {
         guard let tab = selectedTab else { return nil }
-        return SingleActionViewModel(title: tab.isPrivate ? .AppMenu.NewPrivateTab : .AppMenu.NewTab,
+        return SingleActionViewModel(title: tab.isPrivate ? .LegacyAppMenu.NewPrivateTab : .LegacyAppMenu.NewTab,
                                      iconString: StandardImageIdentifiers.Large.plus) { _ in
             let shouldFocusLocationField = NewTabAccessors.getNewTabPage(self.profile.prefs) != .homePage
             self.delegate?.openNewTabFromMenu(focusLocationField: shouldFocusLocationField, isPrivate: tab.isPrivate)
@@ -309,7 +320,7 @@ class MainMenuActionHelper: PhotonActionSheetProtocol,
     }
 
     private func getHistoryLibraryAction() -> PhotonRowActions {
-        return SingleActionViewModel(title: .AppMenu.AppMenuHistory,
+        return SingleActionViewModel(title: .LegacyAppMenu.AppMenuHistory,
                                      iconString: StandardImageIdentifiers.Large.history) { _ in
             self.delegate?.showLibrary(panel: .history)
             TelemetryWrapper.recordEvent(category: .action, method: .tap, object: .viewHistoryPanel)
@@ -317,7 +328,7 @@ class MainMenuActionHelper: PhotonActionSheetProtocol,
     }
 
     private func getDownloadsLibraryAction() -> PhotonRowActions {
-        return SingleActionViewModel(title: .AppMenu.AppMenuDownloads,
+        return SingleActionViewModel(title: .LegacyAppMenu.AppMenuDownloads,
                                      iconString: StandardImageIdentifiers.Large.download) { _ in
             self.delegate?.showLibrary(panel: .downloads)
             TelemetryWrapper.recordEvent(category: .action, method: .tap, object: .viewDownloadsPanel)
@@ -329,7 +340,7 @@ class MainMenuActionHelper: PhotonActionSheetProtocol,
     private func getZoomAction() -> PhotonRowActions? {
         guard let tab = selectedTab else { return nil }
         let zoomLevel = NumberFormatter.localizedString(from: NSNumber(value: tab.pageZoom), number: .percent)
-        let title = String(format: .AppMenu.ZoomPageTitle, zoomLevel)
+        let title = String(format: .LegacyAppMenu.ZoomPageTitle, zoomLevel)
         let zoomAction = SingleActionViewModel(title: title,
                                                iconString: StandardImageIdentifiers.Large.pageZoom) { _ in
             self.delegate?.showZoomPage(tab: tab)
@@ -338,7 +349,7 @@ class MainMenuActionHelper: PhotonActionSheetProtocol,
     }
 
     private func getFindInPageAction() -> PhotonRowActions {
-        return SingleActionViewModel(title: .AppMenu.AppMenuFindInPageTitleString,
+        return SingleActionViewModel(title: .LegacyAppMenu.AppMenuFindInPageTitleString,
                                      iconString: StandardImageIdentifiers.Large.search) { _ in
             TelemetryWrapper.recordEvent(category: .action, method: .tap, object: .findInPage)
             self.delegate?.showFindInPage()
@@ -354,11 +365,11 @@ class MainMenuActionHelper: PhotonActionSheetProtocol,
         let siteTypeTelemetryObject: TelemetryWrapper.EventObject
         // swiftlint:disable line_length
         if defaultUAisDesktop {
-            toggleActionTitle = tab.changedUserAgent ? .AppMenu.AppMenuViewDesktopSiteTitleString : .AppMenu.AppMenuViewMobileSiteTitleString
+            toggleActionTitle = tab.changedUserAgent ? .LegacyAppMenu.AppMenuViewDesktopSiteTitleString : .LegacyAppMenu.AppMenuViewMobileSiteTitleString
             toggleActionIcon = tab.changedUserAgent ? StandardImageIdentifiers.Large.deviceDesktop : StandardImageIdentifiers.Large.deviceMobile
             siteTypeTelemetryObject = .requestDesktopSite
         } else {
-            toggleActionTitle = tab.changedUserAgent ? .AppMenu.AppMenuViewMobileSiteTitleString : .AppMenu.AppMenuViewDesktopSiteTitleString
+            toggleActionTitle = tab.changedUserAgent ? .LegacyAppMenu.AppMenuViewMobileSiteTitleString : .LegacyAppMenu.AppMenuViewDesktopSiteTitleString
             toggleActionIcon = tab.changedUserAgent ? StandardImageIdentifiers.Large.deviceMobile : StandardImageIdentifiers.Large.deviceDesktop
             siteTypeTelemetryObject = .requestMobileSite
         }
@@ -379,19 +390,19 @@ class MainMenuActionHelper: PhotonActionSheetProtocol,
     }
 
     private func getCopyAction() -> PhotonRowActions? {
-        return SingleActionViewModel(title: .AppMenu.AppMenuCopyLinkTitleString,
+        return SingleActionViewModel(title: .LegacyAppMenu.AppMenuCopyLinkTitleString,
                                      iconString: StandardImageIdentifiers.Large.link) { _ in
             TelemetryWrapper.recordEvent(category: .action, method: .tap, object: .copyAddress)
             if let url = self.selectedTab?.canonicalURL?.displayURL {
                 UIPasteboard.general.url = url
-                self.delegate?.showToast(message: .AppMenu.AppMenuCopyURLConfirmMessage, toastAction: .copyUrl)
+                self.delegate?.showToast(message: .LegacyAppMenu.AppMenuCopyURLConfirmMessage, toastAction: .copyUrl)
             }
         }.items
     }
 
     private func getSendToDevice() -> PhotonRowActions {
         let uuid = windowUUID
-        return SingleActionViewModel(title: .AppMenu.TouchActions.SendLinkToDeviceTitle,
+        return SingleActionViewModel(title: .LegacyAppMenu.TouchActions.SendLinkToDeviceTitle,
                                      iconString: StandardImageIdentifiers.Large.deviceDesktopSend) { _ in
             guard let delegate = self.sendToDeviceDelegate,
                   let selectedTab = self.selectedTab,
@@ -418,7 +429,7 @@ class MainMenuActionHelper: PhotonActionSheetProtocol,
     private func getReportSiteIssueAction() -> PhotonRowActions? {
         guard featureFlags.isFeatureEnabled(.reportSiteIssue, checking: .buildOnly) else { return nil }
 
-        return SingleActionViewModel(title: .AppMenu.AppMenuReportSiteIssueTitleString,
+        return SingleActionViewModel(title: .LegacyAppMenu.AppMenuReportSiteIssueTitleString,
                                      iconString: StandardImageIdentifiers.Large.lightbulb) { _ in
             guard let tabURL = self.selectedTab?.url?.absoluteString else { return }
             self.delegate?.openURLInNewTab(SupportUtils.URLForReportSiteIssue(tabURL), isPrivate: false)
@@ -427,17 +438,17 @@ class MainMenuActionHelper: PhotonActionSheetProtocol,
     }
 
     private func getHelpAction() -> PhotonRowActions {
-        return SingleActionViewModel(title: .AppMenu.Help,
+        return SingleActionViewModel(title: .LegacyAppMenu.Help,
                                      iconString: StandardImageIdentifiers.Large.helpCircle) { _ in
             if let url = URL(string: "https://support.mozilla.org/products/ios") {
-                self.delegate?.openURLInNewTab(url, isPrivate: false)
+                self.delegate?.openURLInNewTab(url, isPrivate: self.tabManager.selectedTab?.isPrivate ?? false)
             }
             TelemetryWrapper.recordEvent(category: .action, method: .tap, object: .help)
         }.items
     }
 
     private func getCustomizeHomePageAction() -> PhotonRowActions? {
-        return SingleActionViewModel(title: .AppMenu.CustomizeHomePage,
+        return SingleActionViewModel(title: .LegacyAppMenu.CustomizeHomePage,
                                      iconString: StandardImageIdentifiers.Large.edit) { _ in
             self.delegate?.showCustomizeHomePage()
             TelemetryWrapper.recordEvent(category: .action, method: .tap, object: .customizeHomePage)
@@ -445,7 +456,7 @@ class MainMenuActionHelper: PhotonActionSheetProtocol,
     }
 
     private func getSettingsAction() -> PhotonRowActions {
-        let openSettings = SingleActionViewModel(title: .AppMenu.AppMenuSettingsTitleString,
+        let openSettings = SingleActionViewModel(title: .LegacyAppMenu.AppMenuSettingsTitleString,
                                                  iconString: StandardImageIdentifiers.Large.settings) { _ in
             TelemetryWrapper.recordEvent(category: .action, method: .open, object: .settings)
 
@@ -461,7 +472,12 @@ class MainMenuActionHelper: PhotonActionSheetProtocol,
         var items: [PhotonRowActions] = []
 
         let nightModeEnabled = NightModeHelper.isActivated()
-        let nightModeTitle: String = nightModeEnabled ? .AppMenu.AppMenuTurnOffNightMode : .AppMenu.AppMenuTurnOnNightMode
+        let nightModeTitle: String = if nightModeEnabled {
+            .LegacyAppMenu.AppMenuTurnOffNightMode
+        } else {
+            .LegacyAppMenu.AppMenuTurnOnNightMode
+        }
+
         let nightMode = SingleActionViewModel(
             title: nightModeTitle,
             iconString: StandardImageIdentifiers.Large.nightMode,
@@ -496,7 +512,7 @@ class MainMenuActionHelper: PhotonActionSheetProtocol,
         let needsReAuth = rustAccount.accountNeedsReauth()
 
         guard let userProfile = rustAccount.userProfile else {
-            return SingleActionViewModel(title: .AppMenu.SyncAndSaveData,
+            return SingleActionViewModel(title: .LegacyAppMenu.SyncAndSaveData,
                                          iconString: StandardImageIdentifiers.Large.sync,
                                          tapHandler: action).items
         }
@@ -540,12 +556,12 @@ class MainMenuActionHelper: PhotonActionSheetProtocol,
             delegate?.updateToolbarState()
         }
 
-        whatsNewAction = SingleActionViewModel(title: .AppMenu.WhatsNewString,
+        whatsNewAction = SingleActionViewModel(title: .LegacyAppMenu.WhatsNewString,
                                                iconString: StandardImageIdentifiers.Large.whatsNew,
                                                isEnabled: showBadgeForWhatsNew) { _ in
             if let whatsNewURL = SupportUtils.URLForWhatsNew {
                 TelemetryWrapper.recordEvent(category: .action, method: .open, object: .whatsNew)
-                self.delegate?.openURLInNewTab(whatsNewURL, isPrivate: false)
+                self.delegate?.openURLInNewTab(whatsNewURL, isPrivate: self.tabManager.selectedTab?.isPrivate ?? false)
             }
         }.items
         return whatsNewAction
@@ -557,9 +573,11 @@ class MainMenuActionHelper: PhotonActionSheetProtocol,
 
     // MARK: Share
 
+    /// This action is called when the user taps Menu > Share for a file URL opened in the current active tab (e.g. by
+    /// viewing a file from the Downloads Panel)
     private func getShareFileAction() -> PhotonRowActions {
-        return SingleActionViewModel(title: .AppMenu.AppMenuSharePageTitleString,
-                                     iconString: StandardImageIdentifiers.Large.shareApple) { _ in
+        return SingleActionViewModel(title: .LegacyAppMenu.AppMenuSharePageTitleString,
+                                     iconString: StandardImageIdentifiers.Large.share) { _ in
             guard let tab = self.selectedTab,
                   let url = tab.url
             else { return }
@@ -568,47 +586,50 @@ class MainMenuActionHelper: PhotonActionSheetProtocol,
         }.items
     }
 
+    /// This action is called when the user taps Menu > Share for a website URL in the current active tab.
     private func getShareAction() -> PhotonRowActions {
-        return SingleActionViewModel(title: .AppMenu.Share,
-                                     iconString: StandardImageIdentifiers.Large.shareApple) { _ in
-            guard let tab = self.selectedTab, let url = tab.canonicalURL?.displayURL else { return }
+        return SingleActionViewModel(title: .LegacyAppMenu.Share,
+                                     iconString: StandardImageIdentifiers.Large.share) { _ in
+            // We share the tab's displayURL to make sure we don't share reader mode localhost URLs
+            guard let tab = self.selectedTab,
+                  let url = tab.canonicalURL?.displayURL
+            else { return }
 
             TelemetryWrapper.recordEvent(category: .action, method: .tap, object: .sharePageWith)
+            self.navigationHandler?.showShareSheet(
+                shareType: .tab(url: url, tab: tab),
+                shareMessage: nil,
+                sourceView: self.buttonView,
+                sourceRect: nil,
+                toastContainer: self.toastContainer,
+                popoverArrowDirection: .any
+            )
+        }.items
+    }
 
-            guard let temporaryDocument = tab.temporaryDocument else {
-                self.navigationHandler?.showShareExtension(
-                    url: url,
-                    sourceView: self.buttonView,
-                    toastContainer: self.toastContainer,
-                    popoverArrowDirection: .any)
-                return
-            }
-
-            temporaryDocument.getURL { tempDocURL in
+    private func getDownloadPDFAction() -> PhotonRowActions {
+        return SingleActionViewModel(title: .LegacyAppMenu.AppMenuDownloadPDF,
+                                     iconString: StandardImageIdentifiers.Large.folder) { _ in
+            guard let tab = self.selectedTab, let temporaryDocument = tab.temporaryDocument else { return }
+            temporaryDocument.download { fileURL in
                 DispatchQueue.main.async {
-                    // If we successfully got a temp file URL, share it like a downloaded file,
-                    // otherwise present the ordinary share menu for the web URL.
-                    if let tempDocURL = tempDocURL,
-                       tempDocURL.isFileURL {
-                        self.share(fileURL: tempDocURL, buttonView: self.buttonView)
-                    } else {
-                        self.navigationHandler?.showShareExtension(
-                            url: url,
-                            sourceView: self.buttonView,
-                            toastContainer: self.toastContainer,
-                            popoverArrowDirection: .any)
-                    }
+                    guard let fileURL = fileURL else {return}
+                    self.delegate?.showFilePicker(fileURL: fileURL)
                 }
             }
         }.items
     }
 
-    // Main menu option Share page with when opening a file
+    /// Share the URL of a downloaded file (e.g. either a user-downloaded file being viewed in the webView, or a link with a
+    /// non-HTML MIME type currently opened in the webView, such as a PDF).
+    /// NOTE: Called from getShareFileAction (files in the browser) and getShareAction (websites)
     private func share(fileURL: URL, buttonView: UIView) {
         TelemetryWrapper.recordEvent(category: .action, method: .tap, object: .sharePageWith)
-        navigationHandler?.showShareExtension(
-            url: fileURL,
+        navigationHandler?.showShareSheet(
+            shareType: .file(url: fileURL),
+            shareMessage: nil,
             sourceView: buttonView,
+            sourceRect: nil,
             toastContainer: toastContainer,
             popoverArrowDirection: .any)
     }
@@ -630,7 +651,7 @@ class MainMenuActionHelper: PhotonActionSheetProtocol,
     }
 
     private func getReadingListLibraryAction() -> SingleActionViewModel {
-        return SingleActionViewModel(title: .AppMenu.ReadingList,
+        return SingleActionViewModel(title: .LegacyAppMenu.ReadingList,
                                      iconString: StandardImageIdentifiers.Large.readingList) { _ in
             self.delegate?.showLibrary(panel: .readingList)
         }
@@ -641,7 +662,7 @@ class MainMenuActionHelper: PhotonActionSheetProtocol,
     }
 
     private func getAddReadingListAction() -> SingleActionViewModel {
-        return SingleActionViewModel(title: .AppMenu.AddReadingList,
+        return SingleActionViewModel(title: .LegacyAppMenu.AddReadingList,
                                      iconString: StandardImageIdentifiers.Large.readingListAdd) { _ in
             guard let tab = self.selectedTab,
                   let url = self.tabUrl?.displayURL
@@ -658,19 +679,19 @@ class MainMenuActionHelper: PhotonActionSheetProtocol,
                 object: .readingListItem,
                 value: .pageActionMenu
             )
-            self.delegate?.showToast(message: .AppMenu.AddToReadingListConfirmMessage, toastAction: .addToReadingList)
+            self.delegate?.showToast(message: .LegacyAppMenu.AddToReadingListConfirmMessage, toastAction: .addToReadingList)
         }
     }
 
     private func getRemoveReadingListAction() -> SingleActionViewModel {
-        return SingleActionViewModel(title: .AppMenu.RemoveReadingList,
+        return SingleActionViewModel(title: .LegacyAppMenu.RemoveReadingList,
                                      iconString: StandardImageIdentifiers.Large.delete) { _ in
             guard let url = self.tabUrl?.displayURL?.absoluteString,
                   let record = self.profile.readingList.getRecordWithURL(url).value.successValue
             else { return }
 
             self.profile.readingList.deleteRecord(record, completion: nil)
-            self.delegate?.showToast(message: .AppMenu.RemoveFromReadingListConfirmMessage,
+            self.delegate?.showToast(message: .LegacyAppMenu.RemoveFromReadingListConfirmMessage,
                                      toastAction: .removeFromReadingList)
             TelemetryWrapper.recordEvent(category: .action,
                                          method: .delete,
@@ -694,54 +715,53 @@ class MainMenuActionHelper: PhotonActionSheetProtocol,
     }
 
     private func getBookmarkLibraryAction() -> SingleActionViewModel {
-        return SingleActionViewModel(title: .AppMenu.Bookmarks,
+        return SingleActionViewModel(title: .LegacyAppMenu.Bookmarks,
                                      iconString: StandardImageIdentifiers.Large.bookmarkTrayFill) { _ in
             self.delegate?.showLibrary(panel: .bookmarks)
         }
     }
 
     private func getBookmarkAction() -> SingleActionViewModel {
-        return isBookmarked ? getRemoveBookmarkAction() : getAddBookmarkAction()
+        guard isBookmarked else { return getAddBookmarkAction() }
+        return isBookmarkRefactorEnabled ? getEditBookmarkAction() : getRemoveBookmarkAction()
     }
 
     private func getAddBookmarkAction() -> SingleActionViewModel {
-        return SingleActionViewModel(title: .AppMenu.AddBookmark,
+        return SingleActionViewModel(title: .LegacyAppMenu.AddBookmark,
                                      iconString: StandardImageIdentifiers.Large.bookmark) { _ in
             guard let tab = self.selectedTab,
                   let url = tab.canonicalURL?.displayURL
             else { return }
 
             // The method in BVC also handles the toast for this use case
-            self.delegate?.addBookmark(url: url.absoluteString, title: tab.title)
-            TelemetryWrapper.recordEvent(
-                category: .action,
-                method: .add,
-                object: .bookmark,
-                value: .pageActionMenu
-            )
+            self.delegate?.addBookmark(url: url.absoluteString, title: tab.title, site: nil)
+            let bookmarksTelemetry = BookmarksTelemetry()
+            bookmarksTelemetry.addBookmark(eventLabel: .pageActionMenu)
         }
     }
 
     private func getRemoveBookmarkAction() -> SingleActionViewModel {
-        return SingleActionViewModel(title: .AppMenu.RemoveBookmark,
+        return SingleActionViewModel(title: .LegacyAppMenu.RemoveBookmark,
                                      iconString: StandardImageIdentifiers.Large.bookmarkSlash) { _ in
             guard let url = self.tabUrl?.displayURL else { return }
 
             self.profile.places.deleteBookmarksWithURL(url: url.absoluteString).uponQueue(.main) { result in
                 guard result.isSuccess else { return }
                 self.delegate?.showToast(
-                    message: .AppMenu.RemoveBookmarkConfirmMessage,
+                    message: .LegacyAppMenu.RemoveBookmarkConfirmMessage,
                     toastAction: .removeBookmark
                 )
                 self.removeBookmarkShortcut()
             }
+            let bookmarksTelemetry = BookmarksTelemetry()
+            bookmarksTelemetry.deleteBookmark(eventLabel: .pageActionMenu)
+        }
+    }
 
-            TelemetryWrapper.recordEvent(
-                category: .action,
-                method: .delete,
-                object: .bookmark,
-                value: .pageActionMenu
-            )
+    private func getEditBookmarkAction() -> SingleActionViewModel {
+        return SingleActionViewModel(title: .LegacyAppMenu.EditBookmarkLabel,
+                                     iconString: StandardImageIdentifiers.Large.bookmarkFill) { _ in
+            self.delegate?.showEditBookmark()
         }
     }
 
@@ -756,10 +776,12 @@ class MainMenuActionHelper: PhotonActionSheetProtocol,
                                      iconString: StandardImageIdentifiers.Large.pin) { _ in
             guard let url = self.selectedTab?.url?.displayURL,
                   let title = self.selectedTab?.displayTitle else { return }
-            let site = Site(url: url.absoluteString, title: title)
+
+            let site = Site.createBasicSite(url: url.absoluteString, title: title)
+
             self.profile.pinnedSites.addPinnedTopSite(site).uponQueue(.main) { result in
                 guard result.isSuccess else { return }
-                self.delegate?.showToast(message: .AppMenu.AddPinToShortcutsConfirmMessage, toastAction: .pinPage)
+                self.delegate?.showToast(message: .LegacyAppMenu.AddPinToShortcutsConfirmMessage, toastAction: .pinPage)
             }
 
             TelemetryWrapper.recordEvent(category: .action, method: .tap, object: .pinToTopSites)
@@ -767,15 +789,17 @@ class MainMenuActionHelper: PhotonActionSheetProtocol,
     }
 
     private func getRemoveShortcutAction() -> SingleActionViewModel {
-        return SingleActionViewModel(title: .AppMenu.RemoveFromShortcuts,
+        return SingleActionViewModel(title: .LegacyAppMenu.RemoveFromShortcuts,
                                      iconString: StandardImageIdentifiers.Large.pinSlash) { _ in
             guard let url = self.selectedTab?.url?.displayURL,
                   let title = self.selectedTab?.displayTitle else { return }
-            let site = Site(url: url.absoluteString, title: title)
+
+            let site = Site.createBasicSite(url: url.absoluteString, title: title)
+
             self.profile.pinnedSites.removeFromPinnedTopSites(site).uponQueue(.main) { result in
                 if result.isSuccess {
                     self.delegate?.showToast(
-                        message: .AppMenu.RemovePinFromShortcutsConfirmMessage,
+                        message: .LegacyAppMenu.RemovePinFromShortcutsConfirmMessage,
                         toastAction: .removePinPage
                     )
                 }
@@ -789,7 +813,7 @@ class MainMenuActionHelper: PhotonActionSheetProtocol,
     private func getPasswordAction(navigationController: UINavigationController?) -> PhotonRowActions? {
         guard PasswordManagerListViewController.shouldShowAppMenuShortcut(forPrefs: profile.prefs) else { return nil }
         TelemetryWrapper.recordEvent(category: .action, method: .open, object: .logins)
-        return SingleActionViewModel(title: .AppMenu.AppMenuPasswords,
+        return SingleActionViewModel(title: .LegacyAppMenu.AppMenuPasswords,
                                      iconString: StandardImageIdentifiers.Large.login,
                                      iconType: .Image,
                                      iconAlignment: .left) { _ in

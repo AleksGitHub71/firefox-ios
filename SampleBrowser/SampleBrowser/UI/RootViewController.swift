@@ -30,11 +30,12 @@ class RootViewController: UIViewController,
     private var browserVC: BrowserViewController
     private var searchVC: SearchViewController
     private var findInPageBar: FindInPageBar?
+    private var errorPage: ErrorPageViewController?
 
     private var model = RootViewControllerModel()
 
     // MARK: - Init
-    init(engineProvider: EngineProvider,
+    init(engineProvider: EngineProvider = AppContainer.shared.resolve(),
          windowUUID: UUID?,
          themeManager: ThemeManager = AppContainer.shared.resolve()) {
         self.browserVC = BrowserViewController(engineProvider: engineProvider)
@@ -185,6 +186,8 @@ class RootViewController: UIViewController,
     // MARK: - NavigationDelegate
 
     func onLoadingStateChange(loading: Bool) {
+        removeErrorPage()
+
         model.updateReloadStopButton(loading: loading)
         updateNavigationToolbar()
     }
@@ -211,7 +214,6 @@ class RootViewController: UIViewController,
     }
 
     // MARK: - AddressToolbarDelegate
-
     func searchSuggestions(searchTerm: String) {
         guard !searchTerm.isEmpty else {
             searchVC.viewModel.resetSearch()
@@ -223,18 +225,34 @@ class RootViewController: UIViewController,
         searchVC.requestSearch(term: searchTerm)
     }
 
-    func openSuggestions(searchTerm: String) {
-        addSearchView()
-        searchVC.openSuggestions()
-    }
+    func didClearSearch() {}
 
     func openBrowser(searchTerm: String) {
         browse(to: searchTerm)
     }
 
-    func shouldDisplayTextForURL(_ url: URL?) -> String? {
-        return nil
+    func openSuggestions(searchTerm: String) {
+        addSearchView()
+        searchVC.openSuggestions()
     }
+
+    func addressToolbarDidBeginEditing(searchTerm: String, shouldShowSuggestions: Bool) {}
+
+    func addressToolbarAccessibilityActions() -> [UIAccessibilityCustomAction]? {
+        return []
+    }
+
+    func configureContextualHint(_ addressToolbar: BrowserAddressToolbar,
+                                 for button: UIButton,
+                                 with contextualHintType: String) {
+    }
+    func addressToolbarDidBeginDragInteraction() {}
+
+    func addressToolbarDidProvideItemsForDragInteraction() {}
+
+    func addressToolbarDidTapSearchEngine(_ searchEngineView: UIView) {}
+
+    func addressToolbarNeedsSearchReset() {}
 
     // MARK: - SearchViewDelegate
 
@@ -280,6 +298,31 @@ class RootViewController: UIViewController,
         browserVC.scrollToTop()
     }
 
+    func showErrorPage(page: ErrorPageViewController) {
+        self.errorPage = page
+        addChild(page)
+        page.view.frame = view.bounds
+        page.view.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(page.view)
+
+        NSLayoutConstraint.activate([
+            page.view.topAnchor.constraint(equalTo: addressToolbarContainer.bottomAnchor),
+            page.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            page.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            page.view.bottomAnchor.constraint(equalTo: navigationToolbar.topAnchor)
+        ])
+
+        page.didMove(toParent: self)
+    }
+
+    private func removeErrorPage() {
+        guard let errorPage else { return }
+        errorPage.willMove(toParent: nil)
+        errorPage.view.removeFromSuperview()
+        errorPage.removeFromParent()
+        self.errorPage = nil
+    }
+
     func showFindInPage() {
         let findInPageBar = FindInPageBar()
         findInPageBar.translatesAutoresizingMaskIntoConstraints = false
@@ -304,7 +347,6 @@ class RootViewController: UIViewController,
     }
 
     // MARK: - FindInPageBarDelegate
-
     func findInPage(_ findInPage: FindInPageBar, textChanged text: String) {
         browserVC.findInPage(text: text, function: .find)
     }

@@ -37,9 +37,6 @@
 /* Section title label for recently visited websites */
 "ActivityStream.RecentHistory.Title" = "Nedavno obiskano";
 
-/* Section title label for Shortcuts */
-"ActivityStream.Shortcuts.SectionTitle" = "Bližnjice";
-
 /* The title for the setting page which lets you select the number of top site rows */
 "ActivityStream.TopSites.RowSettingFooter" = "Nastavi vrstice";
 
@@ -293,7 +290,7 @@
 "DownloadsPanel.Delete.Title" = "Izbriši";
 
 /* Title for the Downloads Panel empty state. */
-"DownloadsPanel.EmptyState.Title" = "Prenesene datoteke bodo prikazane tukaj.";
+"DownloadsPanel.EmptyState.Title" = "Tukaj bodo prikazane prenesene datoteke.";
 
 /* Action button for sharing downloaded files in the Downloads panel. */
 "DownloadsPanel.Share.Title" = "Deli";
@@ -395,7 +392,7 @@
 "fxa.signin.ready-to-scan" = "Pripravljeno za skeniranje";
 
 /* FxA sign in view email login button */
-"fxa.signin.use-email-instead" = "Namesto tega uporabite e-pošto";
+"fxa.signin.use-email-instead" = "Namesto tega uporabi e-pošto";
 
 /* Button label to Sync your Firefox Account */
 "FxA.SyncNow" = "Sinhroniziraj zdaj";
@@ -756,6 +753,9 @@
 
 /* Label for the button, displayed in the menu, takes you to History screen when pressed. */
 "Menu.History.Label" = "Zgodovina";
+
+/* Label for the new private tab button in the menu page. Pressing this button opens a new private tab. */
+"Menu.NewPrivateTab.Label" = "Nov zaseben zavihek";
 
 /* Label for the new tab button in the menu page. Pressing this button opens a new tab. */
 "Menu.NewTab.v99" = "Nov zavihek";
@@ -1373,13 +1373,13 @@
 "Settings.NewTab.CustomURL" = "URL po meri";
 
 /* Option in settings to show a blank page when you open a new tab */
-"Settings.NewTab.Option.BlankPage" = "Prazna stran";
+"Settings.NewTab.Option.BlankPage" = "Prazno stran";
 
 /* Option in settings to show your homepage when you open a new tab */
 "Settings.NewTab.Option.Custom" = "Po meri";
 
 /* Option in settings to show Firefox Home when you open a new tab */
-"Settings.NewTab.Option.FirefoxHome" = "Domača stran Firefoxa";
+"Settings.NewTab.Option.FirefoxHome" = "Domačo stran Firefoxa";
 
 /* Option in settings to show your homepage when you open a new tab */
 "Settings.NewTab.Option.HomePage" = "Domača stran";
@@ -1404,9 +1404,6 @@
 
 /* Description displayed under the ”Offer to Open Copied Link” option. See https://bug1223660.bmoattachments.org/attachment.cgi?id=8898349. Placeholder is for the app name. */
 "Settings.OfferClipboardBar.Status.v128" = "Ko odprete %@";
-
-/* Description displayed under the ”Offer to Open Copied Link” option. See https://bug1223660.bmoattachments.org/attachment.cgi?id=8898349 */
-"Settings.OfferClipboardBar.StatusV2" = "Ko odprete Firefox";
 
 /* Title of setting to enable the Go to Copied URL feature. See https://bug1223660.bmoattachments.org/attachment.cgi?id=8898349 */
 "Settings.OfferClipboardBar.Title" = "Ponudi odpiranje kopiranih povezav";

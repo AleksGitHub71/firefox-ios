@@ -18,7 +18,8 @@ class StartAtHomeHelperTests: XCTestCase {
 
         DependencyHelperMock().bootstrapDependencies()
         profile = MockProfile()
-        tabManager = TabManagerImplementation(profile: profile, uuid: .XCTestDefaultUUID)
+        tabManager = TabManagerImplementation(profile: profile,
+                                              uuid: ReservedWindowUUID(uuid: .XCTestDefaultUUID, isNew: false))
 
         DependencyHelperMock().bootstrapDependencies()
     }
@@ -58,12 +59,14 @@ class StartAtHomeHelperTests: XCTestCase {
 
     func testNotShouldStartAtHome_AfterFourHours() {
         setupHelper()
+        helper.startAtHomeSetting = .afterFourHours
         setupLastActiveTimeStamp(value: -3)
         XCTAssertFalse(helper.shouldStartAtHome(), "Expected to fail for less than 4 hours")
     }
 
     func testShouldStartAtHome_AfterFourHours() {
         setupHelper()
+        helper.startAtHomeSetting = .afterFourHours
         setupLastActiveTimeStamp(value: -5)
         XCTAssertTrue(helper.shouldStartAtHome(), "Expected to pass for more than 4 hours")
     }

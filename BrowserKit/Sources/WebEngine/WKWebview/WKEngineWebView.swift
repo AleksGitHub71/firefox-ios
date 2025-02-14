@@ -24,7 +24,7 @@ protocol WKEngineWebView: UIView {
     var interactionState: Any? { get set }
     var url: URL? { get }
     var title: String? { get }
-    var engineScrollView: WKScrollView! { get }
+    var engineScrollView: WKScrollView? { get }
     var engineConfiguration: WKEngineConfiguration { get }
     var hasOnlySecureContent: Bool { get }
 
@@ -64,10 +64,6 @@ protocol WKEngineWebView: UIView {
     func removeFromSuperview()
 
     // MARK: Custom WKEngineView functions
-
-    /// Use JS to redirect the page without adding a history entry
-    /// - Parameter url: The URL to replace the location with
-    func replaceLocation(with url: URL)
 
     func addObserver(
         _ observer: NSObject,
@@ -119,20 +115,12 @@ extension WKEngineWebView {
             }
         }
     }
-
-    func replaceLocation(with url: URL) {
-        let charactersToReplace = CharacterSet(charactersIn: "'")
-        guard let safeUrl = url.absoluteString
-            .addingPercentEncoding(withAllowedCharacters: charactersToReplace.inverted) else { return }
-
-        evaluateJavascriptInDefaultContentWorld("location.replace('\(safeUrl)')")
-    }
 }
 
 // TODO: FXIOS-7896 #17641 Handle WKEngineWebView ThemeApplicable
 // TODO: FXIOS-7897 #17642 Handle WKEngineWebView AccessoryViewProvider
 class DefaultWKEngineWebView: WKWebView, WKEngineWebView, MenuHelperWebViewInterface {
-    var engineScrollView: WKScrollView!
+    var engineScrollView: WKScrollView?
     var engineConfiguration: WKEngineConfiguration
     weak var delegate: WKEngineWebViewDelegate?
 

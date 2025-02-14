@@ -8,7 +8,7 @@ import XCTest
 
 @testable import Storage
 
-class RustPlacesTests: XCTestCase {
+final class RustPlacesTests: XCTestCase {
     var files: FileAccessor!
     var places: RustPlaces!
 
@@ -24,6 +24,12 @@ class RustPlacesTests: XCTestCase {
 
         places = RustPlaces(databasePath: databasePath)
         _ = places.reopenIfClosed()
+    }
+
+    override func tearDown() {
+        _ = places.forceClose()
+        places = nil
+        super.tearDown()
     }
 
     /**

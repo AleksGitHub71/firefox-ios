@@ -11,7 +11,7 @@ protocol CredentialWelcomeViewControllerDelegate: AnyObject {
 }
 
 class CredentialWelcomeViewController: UIViewController {
-    var delegate: CredentialWelcomeViewControllerDelegate?
+    weak var delegate: CredentialWelcomeViewControllerDelegate?
 
     private lazy var logoImageView: UIImageView = {
         let image = UIImageView(image: UIImage(named: "logo-glyph"))
@@ -61,7 +61,7 @@ class CredentialWelcomeViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        view.backgroundColor = UIColor.CredentialProvider.welcomeScreenBackgroundColor
+        view.backgroundColor = CredentialProvider.welcomeScreenBackgroundColor
 
         view.addSubviews(cancelButton, logoImageView, titleLabel, taglineLabel, proceedButton)
 

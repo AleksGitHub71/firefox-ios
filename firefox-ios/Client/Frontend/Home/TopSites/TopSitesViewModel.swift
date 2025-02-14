@@ -11,7 +11,7 @@ class TopSitesViewModel {
     struct UX {
         static let cellEstimatedSize = CGSize(width: 85, height: 94)
         static let cardSpacing: CGFloat = 16
-        static let minCards: Int = 4
+        static let minCards = 4
     }
 
     weak var delegate: HomepageDataModelDelegate?
@@ -25,22 +25,26 @@ class TopSitesViewModel {
     private var unfilteredTopSites: [TopSite] = []
     private var topSites: [TopSite] = []
     private let dimensionManager: TopSitesDimension
-    private var numberOfItems: Int = 0
-    private var numberOfRows: Int = 0
+    private var numberOfItems = 0
+    private var numberOfRows = 0
 
     private let topSitesDataAdaptor: TopSitesDataAdaptor
     private let topSiteHistoryManager: TopSiteHistoryManager
     private let googleTopSiteManager: GoogleTopSiteManager
     private var wallpaperManager: WallpaperManager
+    private let unifiedAdsTelemetry: UnifiedAdsCallbackTelemetry
+    private let sponsoredTileTelemetry: SponsoredTileTelemetry
 
     init(profile: Profile,
          isZeroSearch: Bool = false,
          theme: Theme,
-         wallpaperManager: WallpaperManager) {
+         wallpaperManager: WallpaperManager,
+         sponsoredTileTelemetry: SponsoredTileTelemetry = DefaultSponsoredTileTelemetry(),
+         unifiedAdsTelemetry: UnifiedAdsCallbackTelemetry = DefaultUnifiedAdsCallbackTelemetry()) {
         self.profile = profile
         self.isZeroSearch = isZeroSearch
         self.theme = theme
-        self.dimensionManager = TopSitesDimensionImplementation()
+        self.dimensionManager = LegacyTopSitesDimensionImplementation()
 
         self.topSiteHistoryManager = TopSiteHistoryManager(profile: profile)
         self.googleTopSiteManager = GoogleTopSiteManager(prefs: profile.prefs)
@@ -49,6 +53,8 @@ class TopSitesViewModel {
                                                         googleTopSiteManager: googleTopSiteManager)
         topSitesDataAdaptor = adaptor
         self.wallpaperManager = wallpaperManager
+        self.unifiedAdsTelemetry = unifiedAdsTelemetry
+        self.sponsoredTileTelemetry = sponsoredTileTelemetry
         adaptor.delegate = self
     }
 
@@ -61,7 +67,15 @@ class TopSitesViewModel {
 
     func sendImpressionTelemetry(_ homeTopSite: TopSite, position: Int) {
         guard !hasSentImpressionForTile(homeTopSite) else { return }
-        homeTopSite.impressionTracking(position: position)
+
+        // Only sending sponsored tile impressions for now
+        guard homeTopSite.isSponsored else { return }
+
+        if featureFlags.isFeatureEnabled(.unifiedAds, checking: .buildOnly) {
+            unifiedAdsTelemetry.sendImpressionTelemetry(tileSite: homeTopSite.site, position: position)
+        } else {
+            sponsoredTileTelemetry.sendImpressionTelemetry(tileSite: homeTopSite.site, position: position)
+        }
     }
 
     private func topSitePressTracking(homeTopSite: TopSite, position: Int) {
@@ -77,10 +91,8 @@ class TopSitesViewModel {
         // Bookmarks from topSites
         let isBookmarkedSite = profile.places.isBookmarked(url: homeTopSite.site.url).value.successValue ?? false
         if isBookmarkedSite {
-            TelemetryWrapper.recordEvent(category: .action,
-                                         method: .open,
-                                         object: .bookmark,
-                                         value: .openBookmarksFromTopSites)
+            let bookmarksTelemetry = BookmarksTelemetry()
+            bookmarksTelemetry.openBookmarksSite(eventLabel: .topSites)
         }
 
         TelemetryWrapper.recordEvent(category: .action,
@@ -90,8 +102,12 @@ class TopSitesViewModel {
                                      extras: extras)
 
         // Sponsored tile specific telemetry
-        if let tile = homeTopSite.site as? SponsoredTile {
-            SponsoredTileTelemetry.sendClickTelemetry(tile: tile, position: position)
+        if case SiteType.sponsoredSite = homeTopSite.type {
+            if featureFlags.isFeatureEnabled(.unifiedAds, checking: .buildOnly) {
+                unifiedAdsTelemetry.sendClickTelemetry(tileSite: homeTopSite.site, position: position)
+            } else {
+                sponsoredTileTelemetry.sendClickTelemetry(tileSite: homeTopSite.site, position: position)
+            }
         }
     }
 
@@ -187,7 +203,8 @@ extension TopSitesViewModel: HomepageViewModelProtocol, FeatureFlaggable {
     func refreshData(for traitCollection: UITraitCollection,
                      size: CGSize,
                      isPortrait: Bool = UIWindow.isPortrait,
-                     device: UIUserInterfaceIdiom = UIDevice.current.userInterfaceIdiom) {
+                     device: UIUserInterfaceIdiom = UIDevice.current.userInterfaceIdiom,
+                     orientation: UIDeviceOrientation = UIDevice.current.orientation) {
         let interface = TopSitesUIInterface(trait: traitCollection,
                                             availableWidth: size.width)
         numberOfRows = topSitesDataAdaptor.numberOfRows
@@ -229,8 +246,8 @@ extension TopSitesViewModel: TopSitesManagerDelegate {
 extension TopSitesViewModel: HomepageSectionHandler {
     func configure(_ collectionView: UICollectionView,
                    at indexPath: IndexPath) -> UICollectionViewCell {
-        if let cell = collectionView.dequeueReusableCell(cellType: TopSiteItemCell.self, for: indexPath),
-           let contentItem = topSites[safe: indexPath.row] {
+        if let contentItem = topSites[safe: indexPath.row],
+           let cell = collectionView.dequeueReusableCell(cellType: TopSiteItemCell.self, for: indexPath) {
             let textColor = wallpaperManager.currentWallpaper.textColor
 
             cell.configure(contentItem,

@@ -14,6 +14,7 @@ class LoginListViewModelTests: XCTestCase {
     func testInitialization() {
         let viewModel = LoginListViewModel(
             tabURL: URL(string: "https://example.com")!,
+            field: FocusFieldType.password,
             loginStorage: MockLoginStorage(),
             logger: MockLogger(),
             onLoginCellTap: { _ in },
@@ -30,6 +31,7 @@ class LoginListViewModelTests: XCTestCase {
 
         let viewModel = LoginListViewModel(
             tabURL: URL(string: "https://test.com")!,
+            field: FocusFieldType.password,
             loginStorage: mockLoginStorage,
             logger: MockLogger(),
             onLoginCellTap: { _ in },
@@ -51,6 +53,7 @@ class LoginListViewModelTests: XCTestCase {
 
         let viewModel = LoginListViewModel(
             tabURL: URL(string: "https://example.com")!,
+            field: FocusFieldType.password,
             loginStorage: mockLoginStorage,
             logger: mockLogger,
             onLoginCellTap: { _ in },
@@ -70,6 +73,7 @@ class LoginListViewModelTests: XCTestCase {
 
         let viewModel = LoginListViewModel(
             tabURL: URL(string: "https://example.com")!,
+            field: FocusFieldType.password,
             loginStorage: MockLoginStorage(),
             logger: MockLogger(),
             onLoginCellTap: { _ in didTapLogin = true },
@@ -77,7 +81,7 @@ class LoginListViewModelTests: XCTestCase {
         )
 
         // Simulate tapping a login cell
-        viewModel.onLoginCellTap(EncryptedLogin(
+        viewModel.onLoginCellTap(Login(
             credentials: URLCredential(
                 user: "test",
                 password: "doubletest",
@@ -95,6 +99,7 @@ class LoginListViewModelTests: XCTestCase {
 
         let viewModel = LoginListViewModel(
             tabURL: URL(string: "https://example.com")!,
+            field: FocusFieldType.password,
             loginStorage: MockLoginStorage(),
             logger: MockLogger(),
             onLoginCellTap: { _ in },

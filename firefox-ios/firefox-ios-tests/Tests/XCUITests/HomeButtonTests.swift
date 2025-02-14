@@ -10,55 +10,59 @@ class HomeButtonTests: BaseTestCase {
         super.tearDown()
     }
 
-    // https://testrail.stage.mozaws.net/index.php?/cases/view/2306925
+    // https://mozilla.testrail.io/index.php?/cases/view/2306925
     func testGoHome() throws {
-        if iPad() {
-            waitForTabsButton()
-            navigator.nowAt(NewTabScreen)
-        }
         navigator.openURL(path(forTestPage: "test-mozilla-org.html"), waitForLoading: true)
-        mozWaitForElementToExist(app.buttons[AccessibilityIdentifiers.Toolbar.homeButton], timeout: 10)
-        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Toolbar.homeButton].exists)
-        app.buttons[AccessibilityIdentifiers.Toolbar.homeButton].tap()
+        waitUntilPageLoad()
+        navigator.performAction(Action.GoToHomePage)
         navigator.nowAt(NewTabScreen)
         waitForTabsButton()
-        XCTAssertEqual(app.buttons[AccessibilityIdentifiers.Toolbar.searchButton].label, "Search")
-        if iPad() {
-            navigator.nowAt(NewTabScreen)
+        if !iPad() {
+            XCTAssertEqual(app.buttons[AccessibilityIdentifiers.Toolbar.searchButton].label, "Search")
         }
         navigator.openURL(path(forTestPage: "test-mozilla-book.html"), waitForLoading: true)
-        mozWaitForElementToExist(app.buttons[AccessibilityIdentifiers.Toolbar.homeButton], timeout: 5)
-        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Toolbar.homeButton].exists)
+        waitUntilPageLoad()
+        if iPad() {
+            mozWaitForElementToExist(app.buttons[AccessibilityIdentifiers.Toolbar.addNewTabButton])
+        } else {
+            mozWaitForElementToExist(app.buttons[AccessibilityIdentifiers.Toolbar.homeButton])
+        }
 
         XCUIDevice.shared.orientation = .landscapeRight
-        XCTAssertTrue(app.buttons["Home"].exists)
-        app.buttons["Home"].tap()
+        app.buttons[AccessibilityIdentifiers.Toolbar.addNewTabButton].waitAndTap()
         navigator.nowAt(NewTabScreen)
     }
 
-    // https://testrail.stage.mozaws.net/index.php?/cases/view/2306883
-    func testSwitchHomepageKeyboardNotRaisedUp() {
+    // https://mozilla.testrail.io/index.php?/cases/view/2306883
+    func testSwitchHomepageKeyboardRaisedUp() {
         // Open a new tab and load a web page
         navigator.openURL("http://localhost:\(serverPort)/test-fixture/find-in-page-test.html")
         waitUntilPageLoad()
 
         // Switch to Homepage by taping the home button
-        mozWaitForElementToExist(app.buttons[AccessibilityIdentifiers.Toolbar.homeButton], timeout: 10)
-        app.buttons[AccessibilityIdentifiers.Toolbar.homeButton].tap()
+        navigator.performAction(Action.GoToHomePage)
 
-        validateHomePageAndKeyboardNotRaisedUp()
+        if iPad() {
+            validateHomePageAndKeyboardRaisedUp(showKeyboard: true)
+        } else {
+            validateHomePageAndKeyboardRaisedUp(showKeyboard: false)
+        }
     }
 
-    // https://testrail.stage.mozaws.net/index.php?/cases/view/2306881
+    // https://mozilla.testrail.io/index.php?/cases/view/2306881
     func testAppLaunchKeyboardNotRaisedUp() {
-        mozWaitForElementToExist(app.buttons[AccessibilityIdentifiers.Toolbar.settingsMenuButton], timeout: 5)
-        validateHomePageAndKeyboardNotRaisedUp()
+        mozWaitForElementToExist(app.buttons[AccessibilityIdentifiers.Toolbar.settingsMenuButton])
+        validateHomePageAndKeyboardRaisedUp()
     }
 
-    private func validateHomePageAndKeyboardNotRaisedUp() {
+    private func validateHomePageAndKeyboardRaisedUp(showKeyboard: Bool = false) {
         // The home page is loaded. The keyboard is not raised up
         navigator.nowAt(NewTabScreen)
         waitForTabsButton()
-        XCTAssertFalse(app.keyboards.element.isVisible(), "The keyboard is shown")
+        if !showKeyboard {
+            XCTAssertFalse(app.keyboards.element.isVisible(), "The keyboard is shown")
+        } else {
+            XCTAssertTrue(app.keyboards.element.isVisible(), "The keyboard is not shown")
+        }
     }
 }

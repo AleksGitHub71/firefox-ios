@@ -22,6 +22,7 @@ import struct MozillaAppServices.HistoryMetadataKey
 import struct MozillaAppServices.HistoryMetadataObservation
 import struct MozillaAppServices.HistoryMigrationResult
 import struct MozillaAppServices.HistoryVisitInfosWithBound
+import struct MozillaAppServices.NoteHistoryMetadataObservationOptions
 import struct MozillaAppServices.PlacesTimestamp
 import struct MozillaAppServices.SearchResult
 import struct MozillaAppServices.TopFrecentSiteInfo
@@ -31,7 +32,13 @@ import struct MozillaAppServices.VisitTransitionSet
 
 public protocol BookmarksHandler {
     func getRecentBookmarks(limit: UInt, completion: @escaping ([BookmarkItemData]) -> Void)
+    func getBookmarksTree(
+        rootGUID: GUID,
+        recursive: Bool,
+        completion: @escaping (Result<BookmarkNodeData?, any Error>) -> Void
+    )
     func getBookmarksTree(rootGUID: GUID, recursive: Bool) -> Deferred<Maybe<BookmarkNodeData?>>
+    func countBookmarksInTrees(folderGuids: [GUID], completion: @escaping (Result<Int, Error>) -> Void)
     func updateBookmarkNode(
         guid: GUID,
         parentGUID: GUID?,
@@ -39,6 +46,15 @@ public protocol BookmarksHandler {
         title: String?,
         url: String?
     ) -> Success
+
+    func updateBookmarkNode(
+        guid: GUID,
+        parentGUID: GUID?,
+        position: UInt32?,
+        title: String?,
+        url: String?,
+        completion: @escaping (Result<Void, any Error>) -> Void
+    )
 }
 
 public protocol HistoryMetadataObserver {
@@ -137,6 +153,36 @@ public class RustPlaces: BookmarksHandler, HistoryMetadataObserver {
         return deferred
     }
 
+    /// This method is reimplemented with a completion handler because we want to incrementally get rid of using `Deferred`.
+    public func withWriter<T>(
+        _ callback: @escaping (
+            PlacesWriteConnection
+        ) throws -> T,
+        completion: @escaping (Result<T, any Error>) -> Void
+    ) {
+        writerQueue.async {
+            guard self.isOpen else {
+                completion(.failure(PlacesConnectionError.connUseAfterApiClosed))
+                return
+            }
+
+            if self.writer == nil {
+                self.writer = self.api?.getWriter()
+            }
+
+            if let writer = self.writer {
+                do {
+                    let result = try callback(writer)
+                    completion(.success(result))
+                } catch let error {
+                    completion(.failure(error))
+                }
+            } else {
+                completion(.failure(PlacesConnectionError.connUseAfterApiClosed))
+            }
+        }
+    }
+
     private func withReader<T>(
         _ callback: @escaping(_ connection: PlacesReadConnection) throws -> T
     ) -> Deferred<Maybe<T>> {
@@ -171,6 +217,41 @@ public class RustPlaces: BookmarksHandler, HistoryMetadataObserver {
         return deferred
     }
 
+    /// This method is reimplemented with a completion handler because we want to incrementally get rid of using `Deferred`.
+    private func withReader<T>(
+        _ callback: @escaping (
+            PlacesReadConnection
+        ) throws -> T,
+        completion: @escaping (Result<T, any Error>) -> Void
+    ) {
+        readerQueue.async {
+            guard self.isOpen else {
+                completion(.failure(PlacesConnectionError.connUseAfterApiClosed))
+                return
+            }
+
+            if self.reader == nil {
+                do {
+                    self.reader = try self.api?.openReader()
+                } catch let error {
+                    completion(.failure(error))
+                    return
+                }
+            }
+
+            if let reader = self.reader {
+                do {
+                    let result = try callback(reader)
+                    completion(.success(result))
+                } catch let error {
+                    completion(.failure(error))
+                }
+            } else {
+                completion(.failure(PlacesConnectionError.connUseAfterApiClosed))
+            }
+        }
+    }
+
     public func getBookmarksTree(
         rootGUID: GUID,
         recursive: Bool
@@ -178,6 +259,19 @@ public class RustPlaces: BookmarksHandler, HistoryMetadataObserver {
         return withReader { connection in
             return try connection.getBookmarksTree(rootGUID: rootGUID, recursive: recursive)
         }
+    }
+
+    public func getBookmarksTree(
+        rootGUID: GUID,
+        recursive: Bool,
+        completion: @escaping (Result<BookmarkNodeData?, any Error>) -> Void
+    ) {
+        withReader({ connection in
+            return try connection.getBookmarksTree(
+                rootGUID: rootGUID,
+                recursive: recursive
+            )
+        }, completion: completion)
     }
 
     public func getBookmark(guid: GUID) -> Deferred<Maybe<BookmarkNodeData?>> {
@@ -196,6 +290,20 @@ public class RustPlaces: BookmarksHandler, HistoryMetadataObserver {
 
         deferredResponse.upon { result in
             completion(result.successValue ?? [])
+        }
+    }
+
+    public func countBookmarksInTrees(folderGuids: [GUID], completion: @escaping (Result<Int, Error>) -> Void) {
+        let deferredResponse = withReader { connection in
+            return try connection.countBookmarksInTrees(folderGuids: folderGuids)
+        }
+
+        deferredResponse.upon { result in
+            if let count = result.successValue {
+                completion(.success(count))
+            } else if let error = result.failureValue {
+                completion(.failure(error))
+            }
         }
     }
 
@@ -289,6 +397,19 @@ public class RustPlaces: BookmarksHandler, HistoryMetadataObserver {
         }
     }
 
+    /// This method is reimplemented with a completion handler because we want to incrementally get rid of using `Deferred`.
+    public func createFolder(parentGUID: GUID, title: String,
+                             position: UInt32?,
+                             completion: @escaping (Result<GUID, any Error>) -> Void) {
+        withWriter({ connection in
+                return try connection.createFolder(
+                    parentGUID: parentGUID,
+                    title: title,
+                    position: position
+                )
+            }, completion: completion)
+    }
+
     public func createSeparator(parentGUID: GUID,
                                 position: UInt32?) -> Deferred<Maybe<GUID>> {
         return withWriter { connection in
@@ -316,6 +437,26 @@ public class RustPlaces: BookmarksHandler, HistoryMetadataObserver {
         }
     }
 
+    /// This method is reimplemented with a completion handler because we want to incrementally get rid of using `Deferred`.
+    public func createBookmark(
+        parentGUID: GUID,
+        url: String,
+        title: String?,
+        position: UInt32?,
+        completion: @escaping (Result<GUID, any Error>) -> Void
+    ) {
+        withWriter({ connection in
+                let response = try connection.createBookmark(
+                    parentGUID: parentGUID,
+                    url: url,
+                    title: title,
+                    position: position
+                )
+                self.notificationCenter.post(name: .BookmarksUpdated, object: self)
+                return response
+            }, completion: completion)
+    }
+
     public func updateBookmarkNode(
         guid: GUID,
         parentGUID: GUID? = nil,
@@ -332,6 +473,26 @@ public class RustPlaces: BookmarksHandler, HistoryMetadataObserver {
                 url: url
             )
         }
+    }
+
+    /// This method is reimplemented with a completion handler because we want to incrementally get rid of using `Deferred`.
+    public func updateBookmarkNode(
+        guid: Shared.GUID,
+        parentGUID: Shared.GUID? = nil,
+        position: UInt32? = nil,
+        title: String? = nil,
+        url: String? = nil,
+        completion: @escaping (Result<Void, any Error>) -> Void
+    ) {
+        withWriter({ connection in
+                return try connection.updateBookmarkNode(
+                    guid: guid,
+                    parentGUID: parentGUID,
+                    position: position,
+                    title: title,
+                    url: url
+                )
+            }, completion: completion)
     }
 
     public func reopenIfClosed() -> NSError? {
@@ -410,7 +571,8 @@ public class RustPlaces: BookmarksHandler, HistoryMetadataObserver {
             if let title = observation.title {
                 let response: Void = try connection.noteHistoryMetadataObservationTitle(
                     key: key,
-                    title: title
+                    title: title,
+                    NoteHistoryMetadataObservationOptions(ifPageMissing: .insertPage)
                 )
                 self.notificationCenter.post(name: .HistoryUpdated, object: nil)
                 return response
@@ -418,7 +580,8 @@ public class RustPlaces: BookmarksHandler, HistoryMetadataObserver {
             if let documentType = observation.documentType {
                 let response: Void = try connection.noteHistoryMetadataObservationDocumentType(
                     key: key,
-                    documentType: documentType
+                    documentType: documentType,
+                    NoteHistoryMetadataObservationOptions(ifPageMissing: .insertPage)
                 )
                 self.notificationCenter.post(name: .HistoryUpdated, object: nil)
                 return response
@@ -426,7 +589,8 @@ public class RustPlaces: BookmarksHandler, HistoryMetadataObserver {
             if let viewTime = observation.viewTime {
                 let response: Void = try connection.noteHistoryMetadataObservationViewTime(
                     key: key,
-                    viewTime: viewTime
+                    viewTime: viewTime,
+                    NoteHistoryMetadataObservationOptions(ifPageMissing: .insertPage)
                 )
                 self.notificationCenter.post(name: .HistoryUpdated, object: nil)
                 return response
@@ -620,7 +784,7 @@ extension RustPlaces {
                     // as the title
                     title = info.url
                 }
-                return Site(url: info.url, title: title)
+                return Site.createBasicSite(url: info.url, title: title)
             }))
         }
         return returnValue
@@ -633,7 +797,7 @@ extension RustPlaces {
     ) -> Deferred<Maybe<Cursor<Site>>> {
         let deferred = getVisitPageWithBound(limit: limit, offset: offset, excludedTypes: excludedTypes)
         let result = Deferred<Maybe<Cursor<Site>>>()
-        deferred.upon { visitInfos in
+        deferred.upon { [weak self] visitInfos in
             guard let visitInfos = visitInfos.successValue else {
                 result.fill(Maybe(failure: visitInfos.failureValue ?? "Unknown Error"))
                 return
@@ -647,10 +811,25 @@ extension RustPlaces {
                     // as the title
                     title = info.url
                 }
-                let site = Site(url: info.url, title: title)
+                // Note: FXIOS-10740 Necessary to have unique Site ID iOS 18 HistoryPanel crash with diffable data sources
+                let hashValue = "\(info.url)_\(info.timestamp)".hashValue
+                var site = Site.createBasicSite(id: hashValue, url: info.url, title: title)
                 site.latestVisit = Visit(date: UInt64(info.timestamp) * 1000, type: info.visitType)
                 return site
-            }.uniqued()
+            }
+
+            let sitesUniqued = sites.uniqued()
+
+            // FXIOS-10996 Temporary check for duplicates to help diagnose history panel crashes
+            if sites.count != sitesUniqued.count {
+                let duplicateCount = sitesUniqued.count - sites.count
+                self?.logger.log(
+                    "RustPlaces sites history returned \(duplicateCount) duplicate Sites",
+                    level: .info,
+                    category: .library
+                )
+            }
+
             result.fill(Maybe(success: ArrayCursor(data: sites)))
         }
         return result

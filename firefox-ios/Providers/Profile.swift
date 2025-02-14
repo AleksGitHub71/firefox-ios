@@ -25,6 +25,7 @@ import struct MozillaAppServices.HistoryMigrationResult
 import struct MozillaAppServices.SyncParams
 import struct MozillaAppServices.SyncResult
 import struct MozillaAppServices.VisitObservation
+import struct MozillaAppServices.PendingCommand
 
 public protocol SyncManager {
     var isSyncing: Bool { get }
@@ -51,8 +52,9 @@ public protocol SyncManager {
 
 /// This exists to pass in external context: e.g., the UIApplication can
 /// expose notification functionality in this way.
-public protocol SendTabDelegate: AnyObject {
+public protocol FxACommandsDelegate: AnyObject {
     func openSendTabs(for urls: [URL])
+    func closeTabs(for urls: [URL])
 }
 
 class ProfileFileAccessor: FileAccessor {
@@ -87,7 +89,7 @@ protocol Profile: AnyObject {
     var prefs: Prefs { get }
     var queue: TabQueue { get }
     #if !MOZ_TARGET_NOTIFICATIONSERVICE && !MOZ_TARGET_SHARETO && !MOZ_TARGET_CREDENTIAL_PROVIDER
-    var searchEngines: SearchEngines { get }
+    var searchEnginesManager: SearchEnginesManager { get }
     #endif
     var files: FileAccessor { get }
     var pinnedSites: PinnedSites { get }
@@ -114,9 +116,6 @@ protocol Profile: AnyObject {
     // <http://stackoverflow.com/questions/26029317/exc-bad-access-when-indirectly-accessing-inherited-member-in-swift>
     func localName() -> String
 
-    // Async call to wait for result
-    func hasSyncAccount(completion: @escaping (Bool) -> Void)
-
     // Do we have an account at all?
     func hasAccount() -> Bool
 
@@ -138,10 +137,14 @@ protocol Profile: AnyObject {
     @discardableResult
     func storeTabs(_ tabs: [RemoteTab]) -> Deferred<Maybe<Int>>
 
+    func addTabToCommandQueue(_ deviceId: String, url: URL)
+    func removeTabFromCommandQueue(_ deviceId: String, url: URL)
+    func flushTabCommands(toDeviceId: String?)
+
     func sendItem(_ item: ShareItem, toDevices devices: [RemoteDevice]) -> Success
     func pollCommands(forcePoll: Bool)
 
-    var syncManager: SyncManager! { get }
+    var syncManager: SyncManager? { get }
     func hasSyncedLogins() -> Deferred<Maybe<Bool>>
 
     func syncCredentialIdentities() -> Deferred<Result<Void, Error>>
@@ -232,9 +235,9 @@ open class BrowserProfile: Profile {
 
     let database: BrowserDB
     let readingListDB: BrowserDB
-    var syncManager: SyncManager!
+    var syncManager: SyncManager?
 
-    var sendTabDelegate: SendTabDelegate?
+    var fxaCommandsDelegate: FxACommandsDelegate?
 
     /**
      * N.B., BrowserProfile is used from our extensions, often via a pattern like
@@ -249,7 +252,7 @@ open class BrowserProfile: Profile {
      * However, if we provide it here, it's assumed that we're initializing it from the application.
      */
     init(localName: String,
-         sendTabDelegate: SendTabDelegate? = nil,
+         fxaCommandsDelegate: FxACommandsDelegate? = nil,
          creditCardAutofillEnabled: Bool = false,
          clear: Bool = false,
          logger: Logger = DefaultLogger.shared) {
@@ -260,7 +263,7 @@ open class BrowserProfile: Profile {
         self.files = ProfileFileAccessor(localName: localName)
         self.keychain = MZKeychainWrapper.sharedClientAppContainerKeychain
         self.logger = logger
-        self.sendTabDelegate = sendTabDelegate
+        self.fxaCommandsDelegate = fxaCommandsDelegate
 
         if clear {
             do {
@@ -373,7 +376,7 @@ open class BrowserProfile: Profile {
         let visitType = VisitType.fromRawValue(rawValue: v)
         if let url = notification.userInfo!["url"] as? URL, !isIgnoredURL(url),
         let title = notification.userInfo!["title"] as? NSString {
-            // Only record local vists if the change notification originated from a non-private tab
+            // Only record local visits if the change notification originated from a non-private tab
             if !(notification.userInfo!["isPrivate"] as? Bool ?? false) {
                 let result = self.places.applyObservation(
                     visitObservation: VisitObservation(
@@ -401,7 +404,7 @@ open class BrowserProfile: Profile {
     }
 
     deinit {
-        self.syncManager.endTimedSyncs()
+        self.syncManager?.endTimedSyncs()
     }
 
     func localName() -> String {
@@ -418,7 +421,7 @@ open class BrowserProfile: Profile {
      * Any other class that needs to access any one of these should ensure
      * that this is initialized first.
      */
-    private lazy var legacyPlaces: PinnedSites  = {
+    private lazy var legacyPlaces: PinnedSites = {
         return BrowserDBSQLite(database: self.database, prefs: self.prefs)
     }()
 
@@ -445,7 +448,7 @@ open class BrowserProfile: Profile {
             callback(HistoryMigrationResult(numTotal: 0, numSucceeded: 0, numFailed: 0, totalDuration: 0))
             return
         }
-        let lastSyncTimestamp = Int64(syncManager.lastSyncFinishTime ?? 0)
+        let lastSyncTimestamp = Int64(syncManager?.lastSyncFinishTime ?? 0)
         places.migrateHistory(
             dbPath: browserDbPath,
             lastSyncTimestamp: lastSyncTimestamp,
@@ -469,8 +472,8 @@ open class BrowserProfile: Profile {
     lazy var autofill = RustAutofill(databasePath: autofillDbPath)
 
     #if !MOZ_TARGET_NOTIFICATIONSERVICE && !MOZ_TARGET_SHARETO && !MOZ_TARGET_CREDENTIAL_PROVIDER
-    lazy var searchEngines: SearchEngines = {
-        return SearchEngines(prefs: self.prefs, files: self.files)
+    lazy var searchEnginesManager: SearchEnginesManager = {
+        return SearchEnginesManager(prefs: self.prefs, files: self.files)
     }()
     #endif
 
@@ -513,11 +516,14 @@ open class BrowserProfile: Profile {
     }
 
     public func getClientsAndTabs() -> Deferred<Maybe<[ClientAndTabs]>> {
-        return self.syncManager.syncTabs() >>> { self.retrieveTabData() }
+        guard let syncManager else {
+            return deferMaybe([])
+        }
+        return syncManager.syncTabs() >>> { self.retrieveTabData() }
     }
 
     public func getClientsAndTabs(completion: @escaping ([ClientAndTabs]?) -> Void) {
-        let deferredResponse = self.syncManager.syncTabs() >>> { self.retrieveTabData() }
+        let deferredResponse = self.getClientsAndTabs()
         deferredResponse.upon { result in
             completion(result.successValue)
         }
@@ -547,7 +553,7 @@ open class BrowserProfile: Profile {
             // We shouldn't be called at all if the user isn't signed in.
             return
         }
-        if syncManager.isSyncing {
+        if let syncManager, syncManager.isSyncing {
             // If Sync is already running, `BrowserSyncManager#endSyncing` will
             // send a ping with the queued events when it's done, so don't send
             // an events-only ping now.
@@ -557,6 +563,14 @@ open class BrowserProfile: Profile {
 
     func storeTabs(_ tabs: [RemoteTab]) -> Deferred<Maybe<Int>> {
         return self.tabs.setLocalTabs(localTabs: tabs)
+    }
+
+    func addTabToCommandQueue(_ deviceId: String, url: URL) {
+        tabs.addRemoteCommand(deviceId: deviceId, url: url)
+    }
+
+    func removeTabFromCommandQueue(_ deviceId: String, url: URL) {
+        tabs.removeRemoteCommand(deviceId: deviceId, url: url)
     }
 
     public func sendItem(_ item: ShareItem, toDevices devices: [RemoteDevice]) -> Success {
@@ -578,6 +592,33 @@ open class BrowserProfile: Profile {
             deferred.fill(Maybe(success: ()))
         }
         return deferred
+    }
+
+    public func flushTabCommands(toDeviceId: String?) {
+        guard let deviceId = toDeviceId,
+            let constellation = RustFirefoxAccounts.shared.accountManager?.deviceConstellation() else {
+            return
+        }
+
+        // send all unsent close tab commands
+        self.tabs.getUnsentCommandUrlsByDeviceId(deviceId: deviceId) { urls in
+            constellation.sendEventToDevice(targetDeviceId: deviceId,
+                                            e: .closeTabs(urls: urls)) { result in
+                switch result {
+                case .success:
+                    // mark all pending tab commands as sent
+                    self.tabs.setPendingCommandsSent(deviceId: deviceId)
+                case .failure(.tabsNotClosed(let urls)):
+                    // mark pending tab commands as sent excluding unsentUrls
+                    self.tabs.setPendingCommandsSent(deviceId: deviceId, unsentCommandUrls: urls)
+                default:
+                    // technically this should not be possible here as a non-tabsNotClosed error would
+                    // result after a sendTab sendEventToDevice call but we are covering this case to
+                    // make the compiler happy
+                    break
+                }
+            }
+        }
     }
 
     public func setCommandArrived() {
@@ -603,16 +644,26 @@ open class BrowserProfile: Profile {
         if let accountManager = self.rustFxA.accountManager {
             accountManager.deviceConstellation()?.pollForCommands { commands in
                 guard let commands = try? commands.get() else { return }
-                let urls = commands.compactMap { command in
+
+                var receivedTabURLs: [URL] = []
+                var closedTabURLs: [URL] = []
+                for command in commands {
                     switch command {
                     case .tabReceived(_, let tabData):
-                        let url = tabData.entries.last?.url ?? ""
-                        return URL(string: url, invalidCharacters: false)
-                    default:
-                        return nil
+                        if let urlString = tabData.entries.last?.url, let url = URL(string: urlString) {
+                            receivedTabURLs.append(url)
+                        }
+                    case .tabsClosed(sender: _, let closeTabPayload):
+                        closedTabURLs.append(contentsOf: closeTabPayload.urls.compactMap { URL(string: $0) })
                     }
                 }
-                self.sendTabDelegate?.openSendTabs(for: urls)
+                if !receivedTabURLs.isEmpty {
+                    self.fxaCommandsDelegate?.openSendTabs(for: receivedTabURLs)
+                }
+
+                if !closedTabURLs.isEmpty {
+                    self.fxaCommandsDelegate?.closeTabs(for: closedTabURLs)
+                }
             }
         }
     }
@@ -644,12 +695,6 @@ open class BrowserProfile: Profile {
             return nil
         }
     }()
-
-    func hasSyncAccount(completion: @escaping (Bool) -> Void) {
-        rustFxA.hasAccount { hasAccount in
-            completion(hasAccount)
-        }
-    }
 
     func hasAccount() -> Bool {
         return rustFxA.hasAccount()
@@ -702,7 +747,7 @@ open class BrowserProfile: Profile {
 
         // Trigger cleanup. Pass in the account in case we want to try to remove
         // client-specific data from the server.
-        self.syncManager.onRemovedAccount()
+        self.syncManager?.onRemovedAccount()
     }
 
     public func hasSyncedLogins() -> Deferred<Maybe<Bool>> {

@@ -8,6 +8,8 @@ import Common
 import Shared
 import Redux
 
+import struct MozillaAppServices.Device
+
 class RemoteTabsPanelMiddleware {
     private let profile: Profile
     var notificationCenter: NotificationProtocol
@@ -25,7 +27,16 @@ class RemoteTabsPanelMiddleware {
 
     lazy var remoteTabsPanelProvider: Middleware<AppState> = { [self] state, action in
         let uuid = action.windowUUID
-        guard let action = action as? RemoteTabsPanelAction else { return }
+        if let action = action as? RemoteTabsPanelAction {
+            self.resolveRemoteTabsPanelActions(action: action, state: state)
+        } else {
+            self.resolveHomepageActions(action: action, state: state)
+        }
+    }
+
+    // MARK: - Internal Utilities
+    private func resolveRemoteTabsPanelActions(action: RemoteTabsPanelAction, state: AppState) {
+        let uuid = action.windowUUID
         switch action.actionType {
         case RemoteTabsPanelActionType.panelDidAppear:
             self.getSyncState(window: uuid)
@@ -35,13 +46,23 @@ class RemoteTabsPanelMiddleware {
             store.dispatch(accountChangeAction)
         case RemoteTabsPanelActionType.refreshTabs:
             self.getSyncState(window: uuid)
+        case RemoteTabsPanelActionType.refreshTabsWithCache:
+            self.getSyncState(window: uuid, useCache: true)
         default:
             break
         }
     }
 
-    // MARK: - Internal Utilities
-    private func getSyncState(window: WindowUUID) {
+    private func resolveHomepageActions(action: Action, state: AppState) {
+        switch action.actionType {
+        case HomepageActionType.initialize, JumpBackInActionType.fetchRemoteTabs:
+            self.handleFetchingMostRecentRemoteTab(windowUUID: action.windowUUID)
+        default:
+            break
+        }
+    }
+
+    private func getSyncState(window: WindowUUID, useCache: Bool = false) {
         ensureMainThread { [self] in
             guard self.hasSyncableAccount else {
                 let action = RemoteTabsPanelAction(reason: .notLoggedIn,
@@ -67,12 +88,12 @@ class RemoteTabsPanelMiddleware {
                                                actionType: RemoteTabsPanelActionType.refreshDidBegin)
             store.dispatch(action)
 
-            getRemoteTabs(window: window)
+            getTabsAndDevices(window: window, useCache: useCache)
         }
     }
 
-    private func getRemoteTabs(window: WindowUUID) {
-        profile.getClientsAndTabs { result in
+    private func getTabsAndDevices(window: WindowUUID, useCache: Bool = false) {
+        let completion = { (result: [ClientAndTabs]?) in
             guard let clientAndTabs = result else {
                 let action = RemoteTabsPanelAction(reason: .failedToSync,
                                                    windowUUID: window,
@@ -80,12 +101,64 @@ class RemoteTabsPanelMiddleware {
                 store.dispatch(action)
                 return
             }
+            var action: RemoteTabsPanelAction
 
-            let action = RemoteTabsPanelAction(clientAndTabs: clientAndTabs,
+            if let constellation = self.profile.rustFxA.accountManager?.deviceConstellation() {
+                constellation.refreshState()
+
+                action = RemoteTabsPanelAction(clientAndTabs: clientAndTabs,
+                                               devices: constellation.state()?.remoteDevices,
                                                windowUUID: window,
                                                actionType: RemoteTabsPanelActionType.refreshDidSucceed)
+            } else {
+                action = RemoteTabsPanelAction(clientAndTabs: clientAndTabs,
+                                               devices: nil,
+                                               windowUUID: window,
+                                               actionType: RemoteTabsPanelActionType.refreshDidSucceed)
+            }
             store.dispatch(action)
         }
+
+        if useCache {
+            profile.getCachedClientsAndTabs(completion: completion)
+        } else {
+            profile.getClientsAndTabs(completion: completion)
+        }
+    }
+
+    private func handleFetchingMostRecentRemoteTab(windowUUID: WindowUUID) {
+        let completion = { (result: [ClientAndTabs]?) in
+            guard let mostRecentSyncedTab = self.retrieveConfigurationForMostRecentTab(from: result) else { return }
+            store.dispatch(
+                RemoteTabsAction(
+                    mostRecentSyncedTab: mostRecentSyncedTab,
+                    windowUUID: windowUUID,
+                    actionType: RemoteTabsMiddlewareActionType.fetchedMostRecentSyncedTab
+                )
+            )
+        }
+        profile.getCachedClientsAndTabs(completion: completion)
+    }
+
+    /// Retrieves the most recently used tab from a list of desktop clients tabs.
+    ///
+    /// This method filters the provided `clientAndTabs` list to include only desktop clients that have at least one tab.
+    /// Then, it finds the most recently used tab for each client and then determines the most recent tab across all clients.
+    /// If a valid tab is found, it returns a `RemoteTabConfiguration` containing the client and tab details.
+    ///
+    /// - Parameter clientAndTabs: An optional array of `ClientAndTabs`, representing synced clients and their tabs.
+    /// - Returns: A `RemoteTabConfiguration` containing the most recently used tab’s details,
+    /// or `nil` if no valid tab exists.
+    private func retrieveConfigurationForMostRecentTab(from clientAndTabs: [ClientAndTabs]?) -> RemoteTabConfiguration? {
+        let mostRecentTabsPerClient = clientAndTabs?
+            .filter { !$0.tabs.isEmpty && ClientType.fromFxAType($0.client.type) == .Desktop }
+            .compactMap { client in
+                client.tabs
+                    .max(by: { $0.lastUsed < $1.lastUsed })
+                    .map { RemoteTabConfiguration(client: client.client, tab: $0) }
+            }
+
+        return mostRecentTabsPerClient?.max(by: { $0.tab.lastUsed < $1.tab.lastUsed })
     }
 
     // MARK: - Notifications
@@ -98,6 +171,10 @@ class RemoteTabsPanelMiddleware {
         notificationCenter.addObserver(self,
                                        selector: #selector(notificationReceived),
                                        name: .ProfileDidFinishSyncing,
+                                       object: nil)
+        notificationCenter.addObserver(self,
+                                       selector: #selector(notificationReceived),
+                                       name: .constellationStateUpdate,
                                        object: nil)
     }
 
@@ -113,6 +190,10 @@ class RemoteTabsPanelMiddleware {
                                                     windowUUID: WindowUUID.unavailable,
                                                     actionType: TabTrayActionType.firefoxAccountChanged)
             store.dispatch(accountChangeAction)
+        case .constellationStateUpdate:
+            let action = RemoteTabsPanelAction(windowUUID: WindowUUID.unavailable,
+                                               actionType: RemoteTabsPanelActionType.remoteDevicesChanged)
+            store.dispatch(action)
         default: break
         }
     }
